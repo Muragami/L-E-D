@@ -9,7 +9,7 @@ What started as some updates for hump, turned into a kind of fabric. At that poi
   * **fxcolor**: HSL color support with programmability, colors can alter over time, on events, etc.
   * **fxaudio**: fxAudio Entity to make routing of audio events simple.
   * **fxcamera**: fxCamera Entity to make handling of 2d camera's a snap.
-  * **vfx**: Simple but robust visual entities: vfxLine, vfxSprite.
+  * **fxvisual**: Simple but robust visual entities: fxLED, fxShape, fxLine, fxSprite.
 
 ## Changes from hump and LÖVE
 hump
