@@ -27,6 +27,7 @@ THE SOFTWARE.
 -- grab the humped up core! (always before any other humped module!)
 require 'L-E-D.core'
 require 'L-E-D.fxcolor'
+require 'L-E-D.fxvisual'
 
 -- example me this, batman
 Game = List("TheGame")
@@ -39,6 +40,7 @@ Startup = Entity()
 
 function Startup:integrate()
 	print("startup: integrate!")
+	self.OurLED = fxLED(64,64,2)
 end
 
 function Startup:love_update()

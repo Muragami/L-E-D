@@ -66,7 +66,7 @@ function fxColor:update(dt)
 	if self.effect then self.effect(self,dt) end
 	-- update RGBA
 	if self.changed then
-		self.RGBA = { HSL(unpack(self)) }
+		self:toRGBA()
 		self.changed = false
 		-- Kif, I've made it with RGBA! inform the men!
 		for k,v in pairs(self.toColor) do

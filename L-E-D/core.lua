@@ -100,6 +100,10 @@ end
 Class = setmetatable({new = new, include = include, clone = clone},
 	{__call = function(_,...) return new(...) end})
 
+-- some nice stuff
+_INVALID = {}
+_EMPTY = _INVALID
+
 -- ENTITY
 Entity = Class { type = "?", name = "?", order = 0, once = true, listening = true,
  		active = true, clck = 0.0 }
@@ -155,6 +159,9 @@ function Entity:signal(name,...)
 		end
 	end
 end
+
+-- TODO: add Location
+-- TODO: add Style
 
 -- LIST
 -- a list of classes, a type of collection, as is an Entity
