@@ -47,9 +47,12 @@ end
 Core.InternalUpdate["fxColor"] = fxColorUpdate
 
 function fxColor:init()
+	-- put us in the color table
 	fxColorTable[fxColorId] = self
 	self.ID = fxColorId
 	fxColorId = fxColorId + 1
+	-- make sure we have an internal table for entities we color
+	self.toColor = {}
 end
 
 function fxColor:free()
@@ -65,6 +68,10 @@ function fxColor:update(dt)
 	if self.changed then
 		self.RGBA = { HSL(unpack(self)) }
 		self.changed = false
+		-- Kif, I've made it with RGBA! inform the men!
+		for k,v in pairs(self.toColor) do
+			k:set_color(v,self.RGBA)
+		end
 	end
 end
 
@@ -133,16 +140,21 @@ function fxColor:toRGBA()
 end
 
 function fxColor:getColor()
-	if self.changed then self:toRGBA() self.changed = false end
 	return self.RGBA
 end
 
 function fxColor:getColors()
-	if self.changed then self:toRGBA() self.changed = false end
 	return self.RGBA[1], self.RGBA[2], self.RGBA[3], self.RGBA[4]
 end
 
 function fxColor:toLove()
-	if self.changed then self:toRGBA() self.changed = false end
 	love.graphics.setColor(self.RGBA[1], self.RGBA[2], self.RGBA[3], self.RGBA[4])
+end
+
+function fxColor:paint(thing,part)
+	self.toColor[thing] = part
+end
+
+function fxColor:unpaint(thing,part)
+	self.toColor[thing] = nil
 end

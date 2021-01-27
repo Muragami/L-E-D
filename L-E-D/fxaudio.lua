@@ -22,4 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]--
 
-fxAudio = Entity()
+assert(Class, "L-E-D.fxaudio must be included after L-E-D.core")
+
+fxAudio = Class { __includes = { Entity } }
