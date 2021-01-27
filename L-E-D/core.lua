@@ -238,6 +238,20 @@ function List:signal(name,...)
 	end
 end
 
+-- pass an integrate() call to contents!
+function List:integrate()
+	for _,v in ipairs(self.index) do
+		v:integrate()
+	end
+end
+
+-- pass an integrate() call to contents!
+function List:disintegrate()
+	for _,v in ipairs(self.index) do
+		v:disintegrate()
+	end
+end
+
 
 -- TIMER
 local _timer = {}
@@ -443,13 +457,15 @@ module.tween = setmetatable({}, {
 Timer = setmetatable(module, {__call = _timer.new})
 
 -- CORE
-local Registry = {}
-	Registry.__index = function(self, key)
-		return Registry[key] or (function()
+local Registry = { deferred = {} }
+Registry.__index = function(self, key)
+	return Registry[key] or (
+		function()
 			local t = {}
 			rawset(self, key, t)
 			return t
-		end)()
+		end
+	)()
 end
 
 -- places a signal entity/function at the end of the list
@@ -490,6 +506,32 @@ function Registry:emit(s, ...)
 		end
 		if type(x) == "table" then x:signal(s,...) else x(s,...) end
 	end
+end
+
+local function va_to_table(t, ...)
+    if select('#', ...) < 2 then return end
+    local function helper(x, ...)
+        if select('#', ...) == 0 then
+          table.insert(t,x)
+        end
+				table.insert(t,x)
+        helper(...)
+    end
+    helper(...)
+end
+
+function Registry:emitDeferred(s, ...)
+	local emit = {}
+	emit.s = s
+	va_to_table(emit,...)
+	table.insert(self.deferred,emit)
+end
+
+function Registry:doDeferred()
+	for _,v in ipairs(self.deferred) do
+		self:emit(v.s, v[1], v[2], v[3], v[4], v[5], v[6])
+	end
+	self.deferred = {}
 end
 
 function Registry:remove(s, ...)
@@ -568,6 +610,9 @@ Core.AllNamedEntities = AllNamedEntities
 Core.AllLists = AllLists
 Core.HasUpdated = false
 Core.HasDrawn = false
+Core.ClearScreen = true
+Core.Quitting = false
+Core.InternalUpdate = {}
 
 -- add signals to a list or Entity
 function Core.signalsTo(l,sigs)
@@ -594,14 +639,11 @@ function Core.signalsFrom(l,sigs)
 end
 
 function Core.findEntity(name)
-	return
+	return Core.AllNamedEntities[name]
 end
-
 
 -- RUN
 function love.run()
-	-- Core.emit("love_load",love.arg.parseGameArguments(arg), arg)
-
 	-- We don't want the first frame's dt to include time taken by love.load.
 	if love.timer then love.timer.step() end
 
@@ -609,7 +651,6 @@ function love.run()
 
 	-- Main loop time.
 	return function()
-
 		-- simple detection for a lack of uh, well game!
 		Core.HasDrawn = false
 		Core.HasUpdated = false
@@ -619,9 +660,10 @@ function love.run()
 			love.event.pump()
 			for name, a,b,c,d,e,f in love.event.poll() do
 				if name == "quit" then
-					-- TODO: handle refusal to quit
+					-- all something to stop quitting by setting Core.Quitting to false
+					Core.Quitting = true
 					Core.emit("love_quit",a,b,c,d,e,f)
-					return a or 0
+					if Core.Quitting then return a or 0 end
 				end
 				Core.emit("love_" .. name,a,b,c,d,e,f)
 			end
@@ -630,22 +672,29 @@ function love.run()
 		-- Update dt, as we'll be passing it to update
 		if love.timer then dt = love.timer.step() end
 
+		-- call internal updates
+		for _,v in pairs(Core.InternalUpdate) do
+			local t = type(v)
+			if (t == 'table') then t:love_update(dt)
+			elseif (t == 'function') then v(dt)
+			end
+		end
 		-- update timers
 		Timer.update(dt)
-
-		-- Call update and draw
+		-- update others
 		Core.emit("love_update",dt)
-
+		-- do any deferred signals
+		Core.doDeferred()
+		-- draw
 		if love.graphics and love.graphics.isActive() then
 			love.graphics.origin()
-			love.graphics.clear(love.graphics.getBackgroundColor())
-
+			if Core.ClearScreen then love.graphics.clear(love.graphics.getBackgroundColor()) end
 			Core.emit("love_draw")
-
 			love.graphics.present()
 		end
-
+		-- quit if we have not updated or drawn anything
 		if not Core.HasDrawn or not Core.HasUpdated then return 0 end
+		-- be nice!
 		if love.timer then love.timer.sleep(0.001) end
 	end
 end

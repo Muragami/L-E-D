@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]--
 
-assert(Class, "humped.fxcolor must be included after humped.core")
+assert(Class, "L-E-D.fxcolor must be included after L-E-D.core")
 
 fxColor = Class { __includes = { Entity } }
 
@@ -34,31 +34,17 @@ local function lerp(a, b, k) --smooth transitions
   end
 end
 
---by Taehl https://love2d.org/wiki/HSL_color
---where the magic happens
-local function HSL(h, s, l, a)
-  if s <= 0 then return l,l,l,a end
-  h, s, l = h*6, s, l
-  local c = (1-math.abs(2*l-1))*s
-  local x = (1-math.abs(h%2-1))*c
-  local m,r,g,b = (l-.5*c), 0,0,0
-  if h < 1     then r,g,b = c,x,0
-  elseif h < 2 then r,g,b = x,c,0
-  elseif h < 3 then r,g,b = 0,c,x
-  elseif h < 4 then r,g,b = 0,x,c
-  elseif h < 5 then r,g,b = x,0,c
-  else              r,g,b = c,0,x
-  end return {r+m, g+m, b+m, a}
-end
-
 fxColorTable = {}
 fxColorId = 1
 
 local function fxColorUpdate(dt)
-  for i, v in ipairs(lueColorTable) do
+  for i, v in ipairs(fxColorTable) do
     v:update(dt)
   end
 end
+
+-- add our internal update routine to be called before love_update each frame
+Core.InternalUpdate["fxColor"] = fxColorUpdate
 
 function fxColor:init()
 	fxColorTable[fxColorId] = self
@@ -82,7 +68,7 @@ function fxColor:update(dt)
 	end
 end
 
-function fxColor:setColorHSLA(h,s,l,a)
+function fxColor:setHSLA(h,s,l,a)
 	self[1] = h
 	self[2] = s
 	self[3] = l
@@ -91,33 +77,72 @@ function fxColor:setColorHSLA(h,s,l,a)
 end
 
 -- This code is based on https://en.wikipedia.org/wiki/HSL_and_HSV
-function fxColor:setColorRGBA(r,g,b,a)
-  local max = Math.max(r, g, b)
-  local min = Math.min(r, g, b)
-  local d = max - min
-  local h
-  if d == 0 then h = 0
-  elseif max == r then h = (g - b) / d % 6;
-  elseif max == g then h = (b - r) / d + 2
-  else h = (r - g) / d + 4;
-  self[3] = (min + max) / 2;
-  self[2] = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-  self[1] = h * 60
-	self[4] = a or 1.0
+function fxColor:setRGBA(r,g,b,a)
+	local max = math.max(r, g, b)
+  local min = math.min(r, g, b)
+  local c = max - min
+  if c == 0 then self[1] = 0
+  elseif max == r then self[1] = math.fmod((g - b) / c,6)
+  elseif max == g then self[1] = (b - r) / c + 2
+  else self[1] = (r - g) / c + 4 end
+  self[3] = (min + max) / 2
+  if c == 0 then self[2] = 0 else self[2] = c / (1 - math.abs(2 * self[3] - 1)) end
+	self[4] = a or 1
 	self.changed = true
 end
 
+function fxColor:setHex(hex)
+	if i == nil then i = 1 end
+	local l = s:len()
+	local r,g,b,a
+	if l+i < 6 then return 0, 0, 0, 0 end
+	r = tonumber(s:sub(i,2),16) / 255
+	g = tonumber(s:sub(i+2,4),16) / 255
+	b = tonumber(s:sub(i+4,6),16) / 255
+	if l+i > 8 then
+		-- read the a part!
+		a = tonumber(s:sub(i+6,8),16) / 255
+	else
+		a = 1
+	end
+	self:setRGBA(r,g,b,a)
+end
+
+--by Taehl https://love2d.org/wiki/HSL_color
+--where the magic happens
+function fxColor:toRGBA()
+	if s <= 0 then
+		self.RGBA[1] = l
+		self.RGBA[2] = l
+		self.RGBA[3] = l
+		return
+	end
+	local c = (1-math.abs(2*l-1))*s
+	local x = (1-math.abs(h%2-1))*c
+	local m,r,g,b = (l-.5*c), 0,0,0
+	if h < 1     then r,g,b = c,x,0
+	elseif h < 2 then r,g,b = x,c,0
+	elseif h < 3 then r,g,b = 0,c,x
+	elseif h < 4 then r,g,b = 0,x,c
+	elseif h < 5 then r,g,b = x,0,c
+	else              r,g,b = c,0,x
+	end
+	self.RGBA[1] = r + m
+	self.RGBA[2] = g + m
+	self.RGBA[3] = b + m
+end
+
 function fxColor:getColor()
-	if self.changed then self.RGBA = HSL(unpack(self)) self.changed = false end
+	if self.changed then self:toRGBA() self.changed = false end
 	return self.RGBA
 end
 
 function fxColor:getColors()
-	if self.changed then self.RGBA = HSL(unpack(self)) self.changed = false end
+	if self.changed then self:toRGBA() self.changed = false end
 	return self.RGBA[1], self.RGBA[2], self.RGBA[3], self.RGBA[4]
 end
 
 function fxColor:toLove()
-	if self.changed then self.RGBA = HSL(unpack(self)) self.changed = false end
+	if self.changed then self:toRGBA() self.changed = false end
 	love.graphics.setColor(self.RGBA[1], self.RGBA[2], self.RGBA[3], self.RGBA[4])
 end
