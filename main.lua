@@ -27,6 +27,7 @@ THE SOFTWARE.
 -- grab the humped up core! (always before any other humped module!)
 require 'L-E-D.core'
 require 'L-E-D.fxcolor'
+require 'L-E-D.fxcamera'
 require 'L-E-D.fxvisual'
 
 -- example me this, batman
