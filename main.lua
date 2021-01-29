@@ -40,13 +40,44 @@ Startup = Entity()
 
 function Startup:integrate()
 	print("startup: integrate!")
-	self.OurLED = fxLED(64,64,2)
+	self.OurLED = fxLED(640,360,4)
+	self.OurLED.drawMode = "buffer"
+	self.OurLED:makeFuzz(self.OurLED.fuzzModeList[1])
+	self.fuzzID = 1
+	self.rng = love.math.newRandomGenerator()
+	self.clk = 0
 end
 
-function Startup:love_update()
+function Startup:love_update(dt)
+	-- set 256 random pixels on the LED screen
+	self.clk = self.clk + dt
+	local h,s = math.fmod(self.clk,6),0.6
+	local lines = 16
+	for i=1,lines,1 do
+		local half = (self.OurLED.height-lines)/2
+		local y = math.floor(math.sin(self.clk)*half)+half+i
+		local spot = self.OurLED:getSpot(h,s,1)
+		for c=0,639,1 do
+			self.OurLED:setPixel(c,y,1,spot)
+		end
+	end
+	self.OurLED:love_update(dt)
+end
+
+function Startup:love_keypressed(key, scancode, isrepeat)
+	if key == 'space' then
+		self.fuzzID = self.fuzzID + 1
+		if self.fuzzID > #(self.OurLED.fuzzModeList) then self.fuzzID = 1 end
+		self.OurLED:makeFuzz(self.OurLED.fuzzModeList[self.fuzzID])
+	end
 end
 
 function Startup:love_draw()
+	self.OurLED:love_draw()
+	love.graphics.setColor(0,0,0,0.67)
+	love.graphics.rectangle('fill', 0, 0, 1280, 20)
+	love.graphics.setColor(1,1,1,1)
+	love.graphics.print("FPS: " .. love.timer.getFPS() .. " fuzz is: " .. self.OurLED.fuzzMode)
 end
 
 Game:add(Startup,"Startup")

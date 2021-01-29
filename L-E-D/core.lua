@@ -153,9 +153,9 @@ function Entity:signal(name,...)
 	-- pass the signal to the function, if we are listening
 	if self[name] and self.listening then
 		if self.filter and string.starts(name,self.filter) then
-			self[name](...)
+			self[name](self,...)
 		else
-			self[name](...)
+			self[name](self,...)
 		end
 	end
 end
