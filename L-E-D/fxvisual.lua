@@ -30,7 +30,7 @@ fxShape = Class { __includes = { Entity }, stroke = false, fill = true }
 -- simple shapes that we pass into loved directly, if you are using these
 -- then your shape will be turned into a mesh
 local SimpleShapes = { triangle = true, rectangle = true, points = true,
- 				polygon = true, line = true, ellipse = true, arc = true }
+ 				polygon = true, line = true, ellipse = true, arc = true, text = true }
 
 local wid, sz = false, false
 
@@ -41,16 +41,16 @@ local function draw_triangleline(self)
 		wid = love.graphics.getWidth()
 		love.graphics.setWidth(self.style.width)
 	end
-	love.graphics.triangle("line",self.vertex[1],self.vertex[2],self.vertex[3],self.vertex[4],
-									self.vertex[5],self.vertex[6])
+	love.graphics.triangle("line", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+									self.vertex[5], self.vertex[6])
 	if self.style then
 		love.graphics.setWidth(wid)
 	end
 end
 local function draw_trianglefill(self)
 	if not self.visible then return end
-	love.graphics.triangle("fill",self.vertex[1],self.vertex[2],self.vertex[3],self.vertex[4],
-									self.vertex[5],self.vertex[6])
+	love.graphics.triangle("fill", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+									self.vertex[5], self.vertex[6])
 end
 
 --rectangle
@@ -60,14 +60,14 @@ local function draw_rectangleline(self)
 		wid = love.graphics.getWidth()
 		love.graphics.setWidth(self.style.width)
 	end
-	love.graphics.rectangle("line",self.vertex[1],self.vertex[2],self.width,self.height)
+	love.graphics.rectangle("line", self.vertex[1], self.vertex[2], self.width, self.height)
 	if self.style then
 		love.graphics.setWidth(wid)
 	end
 end
 local function draw_rectanglefill(self)
 	if not self.visible then return end
-	love.graphics.rectangle("fill",self.vertex[1],self.vertex[2],self.width,self.height)
+	love.graphics.rectangle("fill", self.vertex[1], self.vertex[2], self.width, self.height)
 end
 
 -- points
@@ -120,13 +120,13 @@ local function draw_ellipseline(self)
 		wid = love.graphics.getLineWidth()
 		love.graphics.setLineWidth(self.style.width)
 	end
-	love.graphics.ellipse("line",self.vertex[1], self.vertex[2], self.width, self.height)
+	love.graphics.ellipse("line", self.vertex[1], self.vertex[2], self.width, self.height)
 	if self.style then
 		love.graphics.setLineWidth(wid)
 	end
 end
 local function draw_ellipsefill(self)
-	love.graphics.ellipse("fill",self.vertex[1], self.vertex[2], self.width, self.height)
+	love.graphics.ellipse("fill", self.vertex[1], self.vertex[2], self.width, self.height)
 end
 
 -- arc
@@ -135,13 +135,13 @@ local function draw_arcline(self)
 		wid = love.graphics.getLineWidth()
 		love.graphics.setLineWidth(self.style.width)
 	end
-	love.graphics.arc("line",self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	love.graphics.arc("line", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
 	if self.style then
 		love.graphics.setLineWidth(wid)
 	end
 end
 local function draw_arcfill(self)
-	love.graphics.arc("fill",self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	love.graphics.arc("fill", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
 end
 
 --entity
@@ -151,7 +151,13 @@ end
 
 -- mesh
 local function draw_mesh(self)
-	love.graphics.draw(self.the_mesh,self.sx, self.sy)
+	love.graphics.draw(self.the_mesh, self.sx, self.sy)
+end
+
+-- text
+local function draw_textfill(self)
+	love.graphics.setFont(self.font)
+	love.graphics.print(self.text, self.sx, self.sy)
 end
 
 local DrawFunc = { triangleline = draw_triangleline, trianglefill =  draw_trianglefill,
@@ -477,3 +483,5 @@ function fxLED:love_draw()
 	if self.flipCount > self.fuzzEnd then self.flipCount = 1 end
 	if self.fuzzIndex[self.flipCount] then love.graphics.draw(self.sBatch) end
 end
+
+fxGroup = Class { __includes = { List } }

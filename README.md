@@ -11,7 +11,7 @@ What started as some updates for [hump](https://github.com/vrld/hump), turned in
   * **fxcolor**: HSL color support with programmability, colors can alter over time, on events, etc.
   * **fxaudio**: fxAudio Entity to make routing of audio events simple.
   * **fxcamera**: fxCamera Entity to make handling of 2d camera's a snap.
-  * **fxvisual**: Simple but robust visual entities: fxLED, fxShape, fxLine.
+  * **fxvisual**: Simple but robust visual entities: fxLED, fxShape, fxGroup.
 
 ## Changes from hump and LÖVE
 hump
