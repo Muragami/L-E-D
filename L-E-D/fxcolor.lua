@@ -46,13 +46,19 @@ end
 -- add our internal update routine to be called before love_update each frame
 Core.InternalUpdate["fxColor"] = fxColorUpdate
 
-function fxColor:init()
+function fxColor:init(h, s, l, a)
 	-- put us in the color table
 	fxColorTable[fxColorId] = self
 	self.ID = fxColorId
 	fxColorId = fxColorId + 1
 	-- make sure we have an internal table for entities we color
 	self.toColor = {}
+	self[1] = h or 0.0
+	self[2] = s or 1.0
+	self[3] = l or 1.0
+	self[4] = a or 1.0
+	self.RGBA = {}
+	self.changed = true
 end
 
 function fxColor:free()
@@ -118,6 +124,7 @@ end
 --by Taehl https://love2d.org/wiki/HSL_color
 --where the magic happens
 function fxColor:toRGBA()
+	local h, s, l = self[1], self[2], self[3]
 	if s <= 0 then
 		self.RGBA[1] = l
 		self.RGBA[2] = l
@@ -157,4 +164,174 @@ end
 
 function fxColor:unpaint(thing,part)
 	self.toColor[thing] = nil
+end
+
+local svg_color = {
+	['black'] = { 0, 0, 0 },
+	['dimgrey'] = { 0, 0, 41 },
+	['dimgray'] = { 0, 0, 41 },
+	['grey'] = { 0, 0, 50 },
+	['gray'] = { 0, 0, 50 },
+	['darkgray'] = { 0, 0, 66 },
+	['darkgrey'] = { 0, 0, 66 },
+	['silver'] = { 0, 0, 75 },
+	['lightgrey'] = { 0, 0, 83 },
+	['lightgray'] = { 0, 0, 83 },
+	['gainsboro'] = { 0, 0, 86 },
+	['whitesmoke'] = { 0, 0, 96 },
+	['white'] = { 0, 0, 100 },
+	['rosybrown'] = { 0, 25, 65 },
+	['indianred'] = { 0, 53, 58 },
+	['brown'] = { 0, 59, 41 },
+	['firebrick'] = { 0, 68, 42 },
+	['lightcoral'] = { 0, 79, 72 },
+	['maroon'] = { 0, 100, 25 },
+	['darkred'] = { 0, 100, 27 },
+	['red'] = { 0, 100, 50 },
+	['snow'] = { 0, 100, 99 },
+	['salmon'] = { 6, 93, 71 },
+	['mistyrose'] = { 6, 100, 94 },
+	['tomato'] = { 9, 100, 64 },
+	['darksalmon'] = { 15, 72, 70 },
+	['orangered'] = { 16, 100, 50 },
+	['coral'] = { 16, 100, 66 },
+	['lightsalmon'] = { 17, 100, 74 },
+	['sienna'] = { 19, 56, 40 },
+	['chocolate'] = { 25, 75, 47 },
+	['saddlebrown'] = { 25, 76, 31 },
+	['seashell'] = { 25, 100, 97 },
+	['sandybrown'] = { 28, 87, 67 },
+	['peachpuff'] = { 28, 100, 86 },
+	['peru'] = { 30, 59, 53 },
+	['linen'] = { 30, 67, 94 },
+	['darkorange'] = { 33, 100, 50 },
+	['bisque'] = { 33, 100, 88 },
+	['tan'] = { 34, 44, 69 },
+	['burlywood'] = { 34, 57, 70 },
+	['antiquewhite'] = { 34, 78, 91 },
+	['navajowhite'] = { 36, 100, 84 },
+	['blanchedalmond'] = { 36, 100, 90 },
+	['papayawhip'] = { 37, 100, 92 },
+	['moccasin'] = { 38, 100, 85 },
+	['wheat'] = { 39, 77, 83 },
+	['oldlace'] = { 39, 85, 95 },
+	['orange'] = { 39, 100, 50 },
+	['floralwhite'] = { 40, 100, 97 },
+	['goldenrod'] = { 43, 74, 49 },
+	['darkgoldenrod'] = { 43, 89, 38 },
+	['cornsilk'] = { 48, 100, 93 },
+	['gold'] = { 51, 100, 50 },
+	['khaki'] = { 54, 77, 75 },
+	['lemonchiffon'] = { 54, 100, 90 },
+	['palegoldenrod'] = { 55, 67, 80 },
+	['darkkhaki'] = { 56, 38, 58 },
+	['beige'] = { 60, 56, 91 },
+	['lightgoldenrodyellow'] = { 60, 80, 90 },
+	['olive'] = { 60, 100, 25 },
+	['yellow'] = { 60, 100, 50 },
+	['lightyellow'] = { 60, 100, 94 },
+	['ivory'] = { 60, 100, 97 },
+	['olivedrab'] = { 80, 60, 35 },
+	['yellowgreen'] = { 80, 61, 50 },
+	['darkolivegreen'] = { 82, 39, 30 },
+	['greenyellow'] = { 84, 100, 59 },
+	['lawngreen'] = { 90, 100, 49 },
+	['chartreuse'] = { 90, 100, 50 },
+	['darkseagreen'] = { 120, 25, 65 },
+	['forestgreen'] = { 120, 61, 34 },
+	['limegreen'] = { 120, 61, 50 },
+	['lightgreen'] = { 120, 73, 75 },
+	['palegreen'] = { 120, 93, 79 },
+	['darkgreen'] = { 120, 100, 20 },
+	['green'] = { 120, 100, 25 },
+	['lime'] = { 120, 100, 50 },
+	['honeydew'] = { 120, 100, 97 },
+	['seagreen'] = { 146, 50, 36 },
+	['mediumseagreen'] = { 147, 50, 47 },
+	['springgreen'] = { 150, 100, 50 },
+	['mintcream'] = { 150, 100, 98 },
+	['mediumspringgreen'] = { 157, 100, 49 },
+	['mediumaquamarine'] = { 160, 51, 60 },
+	['aquamarine'] = { 160, 100, 75 },
+	['turquoise'] = { 174, 72, 56 },
+	['lightseagreen'] = { 177, 70, 41 },
+	['mediumturquoise'] = { 178, 60, 55 },
+	['darkslategray'] = { 180, 25, 25 },
+	['darkslategrey'] = { 180, 25, 25 },
+	['paleturquoise'] = { 180, 65, 81 },
+	['teal'] = { 180, 100, 25 },
+	['darkcyan'] = { 180, 100, 27 },
+	['cyan'] = { 180, 100, 50 },
+	['aqua'] = { 180, 100, 50 },
+	['lightcyan'] = { 180, 100, 94 },
+	['azure'] = { 180, 100, 97 },
+	['darkturquoise'] = { 181, 100, 41 },
+	['cadetblue'] = { 182, 25, 50 },
+	['powderblue'] = { 187, 52, 80 },
+	['lightblue'] = { 195, 53, 79 },
+	['deepskyblue'] = { 195, 100, 50 },
+	['skyblue'] = { 197, 71, 73 },
+	['lightskyblue'] = { 203, 92, 75 },
+	['steelblue'] = { 207, 44, 49 },
+	['aliceblue'] = { 208, 100, 97 },
+	['slategray'] = { 210, 13, 50 },
+	['slategrey'] = { 210, 13, 50 },
+	['lightslategrey'] = { 210, 14, 53 },
+	['lightslategray'] = { 210, 14, 53 },
+	['dodgerblue'] = { 210, 100, 56 },
+	['lightsteelblue'] = { 214, 41, 78 },
+	['cornflowerblue'] = { 219, 79, 66 },
+	['royalblue'] = { 225, 73, 57 },
+	['midnightblue'] = { 240, 64, 27 },
+	['lavender'] = { 240, 67, 94 },
+	['navy'] = { 240, 100, 25 },
+	['darkblue'] = { 240, 100, 27 },
+	['mediumblue'] = { 240, 100, 40 },
+	['blue'] = { 240, 100, 50 },
+	['ghostwhite'] = { 240, 100, 99 },
+	['darkslateblue'] = { 248, 39, 39 },
+	['slateblue'] = { 248, 53, 58 },
+	['mediumslateblue'] = { 249, 80, 67 },
+	['mediumpurple'] = { 260, 60, 65 },
+	['blueviolet'] = { 271, 76, 53 },
+	['indigo'] = { 275, 100, 25 },
+	['darkorchid'] = { 280, 61, 50 },
+	['darkviolet'] = { 282, 100, 41 },
+	['mediumorchid'] = { 288, 59, 58 },
+	['thistle'] = { 300, 24, 80 },
+	['plum'] = { 300, 47, 75 },
+	['violet'] = { 300, 76, 72 },
+	['purple'] = { 300, 100, 25 },
+	['darkmagenta'] = { 300, 100, 27 },
+	['fuchsia'] = { 300, 100, 50 },
+	['magenta'] = { 300, 100, 50 },
+	['orchid'] = { 302, 59, 65 },
+	['mediumvioletred'] = { 322, 81, 43 },
+	['deeppink'] = { 328, 100, 54 },
+	['hotpink'] = { 330, 100, 71 },
+	['palevioletred'] = { 340, 60, 65 },
+	['lavenderblush'] = { 340, 100, 97 },
+	['crimson'] = { 348, 83, 47 },
+	['pink'] = { 350, 100, 88 },
+	['lightpink'] = { 351, 100, 86 } }
+
+fxColorPalette = Class { __includes = { List } }
+
+function fxColorPalette:addStd(name)
+	if svg_color[name] then
+		local tab = svg_color[name]
+		local h, s, l = tab[1], tab[2], tab[3]
+		self:add(fxColor(h,s,l),name)
+	end
+end
+
+function fxColorPalette:addAllStd()
+	for k,v in pairs(svg_color) do
+		local h, s, l = v[1], v[2], v[3]
+		self:add(fxColor(h,s,l),k)
+	end
+end
+
+function fxColorPalette:duplicate(color)
+
 end

@@ -38,6 +38,8 @@ Core.signalsTo(Game,Core.AllSignals)
 
 -- actually do something
 Startup = Entity()
+Colors = fxColorPalette()
+Colors:addAllStd()
 
 function Startup:integrate()
 	self.OurLED = fxLED(640,360,4)
