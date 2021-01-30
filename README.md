@@ -1,6 +1,7 @@
 # L-E-D
 **Say L, E, D**
-**Implemented: a bit of ??%, not ready for regular use yet!**
+
+**Implemented: a bit = ??%, not ready for regular use yet!**
 
 LÖVE Engine Design
 -----
@@ -10,7 +11,7 @@ What started as some updates for [hump](https://github.com/vrld/hump), turned in
   * **fxcolor**: HSL color support with programmability, colors can alter over time, on events, etc.
   * **fxaudio**: fxAudio Entity to make routing of audio events simple.
   * **fxcamera**: fxCamera Entity to make handling of 2d camera's a snap.
-  * **fxvisual**: Simple but robust visual entities: fxLED, fxShape, fxLine, fxSprite.
+  * **fxvisual**: Simple but robust visual entities: fxLED, fxShape, fxLine.
 
 ## Changes from hump and LÖVE
 hump

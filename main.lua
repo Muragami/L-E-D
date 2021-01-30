@@ -64,7 +64,6 @@ function Startup:love_update(dt)
 			self.OurLED:setPixel(c,y,1,spot)
 		end
 	end
-	-- self.OurLED:love_update(dt)
 end
 
 function Startup:love_keypressed(key, scancode, isrepeat)
