@@ -315,6 +315,7 @@ function Entity:signal(name,...)
 		self:integrate()
 		self.once = false
 	end
+	if self.signal_accept and not self.signal_accept[name] then return end
 	-- pass the signal to the function, if we are listening
 	if self[name] and self.listening then
 		if self.filter and string.starts(name,self.filter) then

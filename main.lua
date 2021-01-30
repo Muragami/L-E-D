@@ -46,7 +46,9 @@ function Startup:integrate()
 	self.fuzzID = 1
 	self.rng = love.math.newRandomGenerator()
 	self.clk = 0
+	self.Rect = fxShape( { form = "rectangle", mode = "fill", vertex = { 10, 10 }, width = 100, height = 50 } )
 	Game:addBefore(self.OurLED,Startup)
+	Game:addAfter(self.Rect,self.OurLED)
 end
 
 function Startup:love_update(dt)

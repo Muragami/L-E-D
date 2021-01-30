@@ -25,7 +25,203 @@ SOFTWARE.
 assert(Class, "L-E-D.fxvisual must be included after L-E-D.core")
 assert(fxColor, "L-E-D.fxvisual must be included after L-E-D.fxcolor")
 
-fxShape = Class { __includes = { Entity } }
+fxShape = Class { __includes = { Entity }, stroke = false, fill = true }
+
+-- simple shapes that we pass into loved directly, if you are using these
+-- then your shape will be turned into a mesh
+local SimpleShapes = { triangle = true, rectangle = true, points = true,
+ 				polygon = true, line = true, ellipse = true, arc = true }
+
+local wid, sz = false, false
+
+--triangle
+local function draw_triangleline(self)
+	if not self.visible then return end
+	if self.style then
+		wid = love.graphics.getWidth()
+		love.graphics.setWidth(self.style.width)
+	end
+	love.graphics.triangle("line",self.vertex[1],self.vertex[2],self.vertex[3],self.vertex[4],
+									self.vertex[5],self.vertex[6])
+	if self.style then
+		love.graphics.setWidth(wid)
+	end
+end
+local function draw_trianglefill(self)
+	if not self.visible then return end
+	love.graphics.triangle("fill",self.vertex[1],self.vertex[2],self.vertex[3],self.vertex[4],
+									self.vertex[5],self.vertex[6])
+end
+
+--rectangle
+local function draw_rectangleline(self)
+	if not self.visible then return end
+	if self.style then
+		wid = love.graphics.getWidth()
+		love.graphics.setWidth(self.style.width)
+	end
+	love.graphics.rectangle("line",self.vertex[1],self.vertex[2],self.width,self.height)
+	if self.style then
+		love.graphics.setWidth(wid)
+	end
+end
+local function draw_rectanglefill(self)
+	if not self.visible then return end
+	love.graphics.rectangle("fill",self.vertex[1],self.vertex[2],self.width,self.height)
+end
+
+-- points
+local function draw_pointsfill(self)
+	if not self.visible then return end
+	if self.style then
+		sz = love.graphics.getPointSize()
+		love.graphics.setPointSize(self.style.size)
+	end
+	love.graphics.points("fill",self.vertex)
+	if self.style then
+		love.graphics.setPointSize(sz)
+	end
+end
+
+--polygon
+local function draw_polygonline(self)
+	if not self.visible then return end
+	if self.style then
+		wid = love.graphics.getLineWidth()
+		love.graphics.setLineWidth(self.style.width)
+	end
+	love.graphics.polygon("line",self.vertex)
+	if self.style then
+		love.graphics.setLineWidth(wid)
+	end
+end
+local function draw_polygonfill(self)
+	if not self.visible then return end
+	love.graphics.polygon("fill",self.vertex)
+end
+
+--line
+local function draw_lineline(self)
+	if not self.visible then return end
+	if self.style then
+		wid = love.graphics.getLineWidth()
+		love.graphics.setLineWidth(self.style.width)
+	end
+	love.graphics.line("line",self.vertex)
+	if self.style then
+		love.graphics.setLineWidth(wid)
+	end
+end
+
+--ellipse
+local function draw_ellipseline(self)
+	if not self.visible then return end
+	if self.style then
+		wid = love.graphics.getLineWidth()
+		love.graphics.setLineWidth(self.style.width)
+	end
+	love.graphics.ellipse("line",self.vertex[1], self.vertex[2], self.width, self.height)
+	if self.style then
+		love.graphics.setLineWidth(wid)
+	end
+end
+local function draw_ellipsefill(self)
+	love.graphics.ellipse("fill",self.vertex[1], self.vertex[2], self.width, self.height)
+end
+
+-- arc
+local function draw_arcline(self)
+	if self.style then
+		wid = love.graphics.getLineWidth()
+		love.graphics.setLineWidth(self.style.width)
+	end
+	love.graphics.arc("line",self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	if self.style then
+		love.graphics.setLineWidth(wid)
+	end
+end
+local function draw_arcfill(self)
+	love.graphics.arc("fill",self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+end
+
+--entity
+local function draw_entity(self)
+	self.draw_entity:love_draw()
+end
+
+-- mesh
+local function draw_mesh(self)
+	love.graphics.draw(self.the_mesh,self.sx, self.sy)
+end
+
+local DrawFunc = { triangleline = draw_triangleline, trianglefill =  draw_trianglefill,
+				rectanglefill = draw_rectanglefill, rectangleline = draw_rectangleline,
+			 	pointsfill = draw_pointsfill, polygonfill = draw_polygonfill,
+				polygonline = draw_polygonline, lineline = draw_lineline, ellipseline = draw_ellipseline,
+			 	ellipsefill = draw_ellipsefill, arcline = draw_arcline, arcfill = draw_arcfill }
+
+function fxShape:init(cfg)
+	local opts
+	if cfg then
+		if type(cfg) == "string" then
+			-- decode the JSON data
+			opts = JSON:decode(cfg)
+		else
+			-- it's a table with data
+			opts = cfg
+		end
+	end
+	-- get the config!
+	for k,v in pairs(opts) do
+		self[k] = v
+	end
+	if self.vertex and not self.sx then self.sx = self.vertex[1] end
+	if self.vertex and not self.sy then self.sy = self.vertex[2] end
+	-- are we simple?
+	self.simple = SimpleShapes[opts.form] or false
+	if self.simple then
+		-- whatever we are, assign the proper draw function
+		self.love_draw = DrawFunc[self.form .. self.mode]
+	else
+		-- well what have we here? let's take a closer look
+		if self.form == "draw" then
+			-- fully custom drawn shape, so let's configure that
+			local code = self.draw
+			if type(code) == "string" then
+				self.love_draw = loadstring(code)
+				-- Lua code to compile
+			elseif type(code) == "table" then
+				-- entity to call love_draw on
+				self.draw_entity = code
+				self.love_draw = draw_entity
+			elseif type(code) == "function" then
+				-- a function to assign
+				self.love_draw = code
+			end
+		elseif self.form == "build" then
+			-- ok we are making a mesh!
+			local code = self.build
+			if type(code) == "string" then
+				self.the_mesh = (loadstring(code))(self)
+				-- Lua code to compile
+			elseif type(code) == "table" then
+				-- entity to call love_draw on
+				self.the_mesh = code:build()
+			elseif type(code) == "function" then
+				-- a function to assign
+				self.the_mesh = code(self)
+			end
+			self.love_draw = draw_mesh
+		else
+			-- just drawing a mesh
+			self.the_mesh = love.graphics.newMesh( self.vertex, self.mode, self.usage )
+			self.love_draw = draw_mesh
+		end
+	end
+	self.visible = true
+	-- if this is for offscreen use, don't draw it when called upon
+	if self.offscreen then self.draw_offscreen = self.love_draw self.love_draw = nil end
+end
 
 fxLED =  Class { __includes = { Entity }, drawMode = "buffer", fuzzMode = "flip", bits = 4, width = 0, height = 0 }
 
@@ -113,8 +309,6 @@ function Core.ledsSetup(bits)
 	Core.ledsNew(bits,2)
 	Core.ledsNew(bits,3)
 	Core.ledsNew(bits,4)
-	-- TODO: debug!
-	LEDid[1] :encode( 'png', "LED-" .. bits .. "B-V1.png" )
 		-- we need 4 of these for the four possible rotations
 	Core.LEDimg[bits] = {}
 	Core.LEDimg[bits][1] = love.graphics.newImage(LEDid[1])
