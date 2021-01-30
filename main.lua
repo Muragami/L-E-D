@@ -46,6 +46,7 @@ function Startup:integrate()
 	self.fuzzID = 1
 	self.rng = love.math.newRandomGenerator()
 	self.clk = 0
+	Game:addBefore(self.OurLED,Startup)
 end
 
 function Startup:love_update(dt)
@@ -61,7 +62,7 @@ function Startup:love_update(dt)
 			self.OurLED:setPixel(c,y,1,spot)
 		end
 	end
-	self.OurLED:love_update(dt)
+	-- self.OurLED:love_update(dt)
 end
 
 function Startup:love_keypressed(key, scancode, isrepeat)
@@ -73,7 +74,6 @@ function Startup:love_keypressed(key, scancode, isrepeat)
 end
 
 function Startup:love_draw()
-	self.OurLED:love_draw()
 	love.graphics.setColor(0,0,0,0.67)
 	love.graphics.rectangle('fill', 0, 0, 1280, 20)
 	love.graphics.setColor(1,1,1,1)

@@ -257,7 +257,7 @@ function fxLED:setRGBA(x,y,r,g,b,a)
 	-- TODO
 end
 
-function fxLED:love_update()
+function fxLED:post_update()
 	-- move screen to the spritebatch if we are buffering!
 	if self.drawMode == 'buffer' then
 		for iy=0,self.height-1,1 do
@@ -278,7 +278,7 @@ end
 
 function fxLED:love_draw()
 	-- draw the batch!
-	if self.fuzzIndex[self.flipCount] then self.sBatch:setTexture(Core.LEDimg[self.bits][self.fuzzIndex[self.flipCount]]) end
+	if self.fuzzIndex[self.flipCount] then self.sBatch:setTexture(self.ledImg[self.fuzzIndex[self.flipCount]]) end
 	self.flipCount = self.flipCount + 1
 	if self.flipCount > self.fuzzEnd then self.flipCount = 1 end
 	if self.fuzzIndex[self.flipCount] then love.graphics.draw(self.sBatch) end

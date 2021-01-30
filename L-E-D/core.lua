@@ -23,6 +23,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]--
 
+-- JSON support
+require 'L-E-D.JSON'
+
 -- UTILITY
 function string.starts(String,Start)
    return string.sub(String,1,string.len(Start))==Start
@@ -328,14 +331,9 @@ end
 -- LIST
 -- a list of classes, a type of collection, as is an Entity
 List = Class { __includes = { Entity }, type = 'list', name = "?", ID = -1, top = 0, index = {},
-		ordered = false }
-ListID = 1
+		places = {}, ordered = false }
+local ListID = 1
 local AllLists = {}
-
-function List.find(name)
-	if name == nil then name = "?" end
-	return AllLists[name]
-end
 
 -- create a new list, and add it to the master table of lists
 function List:init(name)
@@ -361,11 +359,56 @@ end
 function List:add(entity,name)
 	self.top = self.top + 1
 	self.index[self.top] = entity
-	if entity.list_index == nil then entity.list_index = {} end
-	entity.list_index[self] = self.top
+	self.places[entity] = self.top
 	if name then self.index[name] = entity end
 	-- let the entity know it is being added to this list, if it wants that
 	if entity.list_add then entity:list_add(self,name) end
+end
+
+-- add an entity to our list, before another one
+function List:addBefore(entity,what,name)
+	local where
+	if type(what) == "string" then
+		-- find by name
+		where = self.index[what]
+	else
+		-- find by identity
+		where = self.places[what]
+	end
+	-- insert the entity
+	assert(where,"List:addBefore() doesn't have " .. tostring(what))
+	table.insert(self.index,where,entity)
+	if name then self.index[name] = entity end
+	-- update places!
+	self.top = self.top + 1
+	for i=where,self.top,1 do
+		self.places[self.index[i]] = i
+	end
+end
+
+-- add an entity to our list, before another one
+function List:addAfter(entity,what,name)
+	local where
+	if type(what) == "string" then
+		-- find by name
+		where = self.index[what]
+	else
+		-- find by identity
+		where = self.places[what]
+	end
+	-- insert the entity
+	assert(where,"List:addBefore() doesn't have " .. tostring(what))
+	-- after the top, that's easy!
+	if where == self.top then self:add(entity,name) return end
+	-- less easy!
+	where = where + 1
+	table.insert(self.index,where,entity)
+	if name then self.index[name] = entity end
+	-- update places!
+	self.top = self.top + 1
+	for i=where,self.top,1 do
+		self.places[self.index[i]] = i
+	end
 end
 
 -- low level, remove an entity by id
@@ -385,13 +428,12 @@ function List:remove(how,x)
 	if how == 'name' then
 		-- remove by it's name
 		local e = self.index[x]
-		if e then
-			-- remove it
-			self:rem(e.list_index[self], name)
-		end
+		if e then self:rem(self.places[e], name) end
 	elseif how == 'class' then
+		local e = self.places[x]
+		if e then self:rem(e, name) end
 		-- remove by class itself
-		self:rem(x.list_index[self])
+		self:rem(self.places[x])
 	elseif how == 'id' then
 		-- remove by id number
 		self:rem(x)
@@ -761,7 +803,7 @@ end
 Core = setmetatable(module, {})
 -- setup love signals
 Core.DefaultSignals = { "love_update", "love_draw", "love_errorhandler",
- 		"love_threaderror", "love_quit", "love_lowmemory", "love_displayrotated" }
+ 		"love_threaderror", "love_quit", "love_lowmemory", "love_displayrotated", "post_update" }
 Core.JoystickSignals = { "love_gamepadaxis", "love_gamepadpressed","love_gamepadreleased",
  		"love_joystickadded", "love_joystickaxis", "love_joystickhat",
 		"love_joystickpressed", "love_joystickreleased", "love_joystickremoved" }
@@ -811,6 +853,11 @@ function Core.findEntity(name)
 	return Core.AllNamedEntities[name]
 end
 
+function Core.findList(name)
+	if name == nil then name = "?" end
+	return Core.AllLists[name]
+end
+
 -- RUN
 function love.run()
 	-- We don't want the first frame's dt to include time taken by love.load.
@@ -852,6 +899,8 @@ function love.run()
 		Timer.update(dt)
 		-- update others
 		Core.emit("love_update",dt)
+		-- do any post update for internals
+		Core.emit("post_update",dt)
 		-- do any deferred signals
 		Core.doDeferred()
 		-- draw
