@@ -32,6 +32,111 @@ fxLED =  Class { __includes = { Entity }, drawMode = "buffer", fuzzMode = "flip"
 -- install some shared fxLED stuff into Core, and fill that in if we use it!
 Core.LEDimg = {}
 Core.LEDid = {}
+Core.LEDq = {}
+
+function Core.ledsNew(bits,ver,process)
+	-- make the LED iamges
+	local delta = {}
+	if ver == 1 then
+		delta[1] = { [1] = 0, [2] = 0 }
+		delta[2] = { [1] = 1, [2] = 0 }
+		delta[3] = { [1] = 1, [2] = 1 }
+		delta[4] = { [1] = 0, [2] = 1 }
+	elseif ver == 2 then
+		delta[1] = { [1] = 1, [2] = 0 }
+		delta[2] = { [1] = 1, [2] = 1 }
+		delta[3] = { [1] = 0, [2] = 1 }
+		delta[4] = { [1] = 0, [2] = 0 }
+	elseif ver == 3 then
+		delta[1] = { [1] = 1, [2] = 1 }
+		delta[2] = { [1] = 0, [2] = 1 }
+		delta[3] = { [1] = 0, [2] = 0 }
+		delta[4] = { [1] = 1, [2] = 0 }
+	else
+		delta[1] = { [1] = 0, [2] = 1 }
+		delta[2] = { [1] = 0, [2] = 0 }
+		delta[3] = { [1] = 1, [2] = 0 }
+		delta[4] = { [1] = 1, [2] = 1 }
+	end
+
+	-- no processing, ok, make a dummy passback function!
+	if process == nil then process = function(x) return x end end
+	local imgData = Core.LEDid[bits][ver]
+	local sz = Core.LEDid[bits].imgSize * 0.5
+	local h, s, l, r, g, b, xl
+	l = 0.5
+	-- l is always 0
+	for cy=1,sz,1 do
+		s = (cy / sz) * 2
+		if s > 1 then
+			xl = s - 1
+			s = 1
+		else
+			xl = 0
+		end
+		for cx=1,sz,1 do
+			h = cx / sz * 6
+			-- calc
+			local c = (1-math.abs(2*l-1))*s
+			local x = (1-math.abs(h%2-1))*c
+			local m,r,g,b = (l-.5*c), 0,0,0
+			if h < 1     then r,g,b = c,x,0
+			elseif h < 2 then r,g,b = x,c,0
+			elseif h < 3 then r,g,b = 0,c,x
+			elseif h < 4 then r,g,b = 0,x,c
+			elseif h < 5 then r,g,b = x,0,c
+			else              r,g,b = c,0,x
+			end
+			imgData:setPixel( (cx-1)*2 + delta[1][1], (cy-1)*2 + delta[1][2], process(r+m), 0, 0, 1 )
+			imgData:setPixel( (cx-1)*2 + delta[2][1], (cy-1)*2 + delta[2][2], 0, process(g+m), 0, 1 )
+			imgData:setPixel( (cx-1)*2 + delta[3][1], (cy-1)*2 + delta[3][2], 0, 0, process(b+m), 1 )
+			local v = process(xl)
+			imgData:setPixel( (cx-1)*2 + delta[4][1], (cy-1)*2 + delta[4][2], v, v, v, 1 )
+		end
+	end
+end
+
+function Core.ledsSetup(bits)
+	-- we need 4 of these for the four possible rotations
+	Core.LEDid[bits] = {}
+	local LEDid = Core.LEDid[bits]
+	LEDid.colors = math.pow(2,bits*4)
+	LEDid.map_width = math.sqrt(LEDid.colors)
+	local tsize = LEDid.map_width * 2
+	LEDid.imgSize = tsize
+	LEDid[1] = love.image.newImageData(tsize,tsize)
+	LEDid[2] = love.image.newImageData(tsize,tsize)
+	LEDid[3] = love.image.newImageData(tsize,tsize)
+	LEDid[4] = love.image.newImageData(tsize,tsize)
+	-- create standard LED images
+	Core.ledsNew(bits,1)
+	Core.ledsNew(bits,2)
+	Core.ledsNew(bits,3)
+	Core.ledsNew(bits,4)
+	-- TODO: debug!
+	LEDid[1] :encode( 'png', "LED-" .. bits .. "B-V1.png" )
+		-- we need 4 of these for the four possible rotations
+	Core.LEDimg[bits] = {}
+	Core.LEDimg[bits][1] = love.graphics.newImage(LEDid[1])
+	Core.LEDimg[bits][1]:setFilter('nearest','nearest')
+	Core.LEDimg[bits][2] = love.graphics.newImage(LEDid[2])
+	Core.LEDimg[bits][2]:setFilter('nearest','nearest')
+	Core.LEDimg[bits][3] = love.graphics.newImage(LEDid[3])
+	Core.LEDimg[bits][3]:setFilter('nearest','nearest')
+	Core.LEDimg[bits][4] = love.graphics.newImage(LEDid[4])
+	Core.LEDimg[bits][4]:setFilter('nearest','nearest')
+	-- quads for the various pixels
+	Core.LEDq[bits] = {}
+	local ledQuads = Core.LEDq[bits]
+	local sz, c = tsize * 0.5, 0
+	for cy=1,sz,1 do
+		for cx=1,sz,1 do
+			ledQuads[c] = love.graphics.newQuad((cx-1) * 2, (cy-1) * 2, 2, 2,
+											tsize, tsize)
+			c = c + 1
+		end
+	end
+end
 
 --[[
 	bits is bits per color channel, so actual color bits: 4x bits
@@ -48,58 +153,18 @@ function fxLED:init(width,height,bits)
 	self.bits = bits
 	self.width = width
 	self.height = height
-	if Core.LEDimg[bits] == nil then
-		-- create the LED texture (as described above)
-		self.colors = math.pow(2,self.bits*4)
-		self.map_width = math.sqrt(self.colors)
-		local tsize = self.map_width * 2
-		self.imgSize = tsize
-		-- we need 4 of these for the four possible rotations
-		Core.LEDid[bits] = {}
-		Core.LEDid[bits][1] = love.image.newImageData(tsize,tsize)
-		Core.LEDid[bits][2] = love.image.newImageData(tsize,tsize)
-		Core.LEDid[bits][3] = love.image.newImageData(tsize,tsize)
-		Core.LEDid[bits][4] = love.image.newImageData(tsize,tsize)
-		-- create standard LED images
-		self:_newLEDs(1)
-		self:_newLEDs(2)
-		self:_newLEDs(3)
-		self:_newLEDs(4)
-		-- TODO: debug!
-		Core.LEDid[bits][1] :encode( 'png', "LED-" .. bits .. "B-V1.png" )
-			-- we need 4 of these for the four possible rotations
-		Core.LEDimg[bits] = {}
-		Core.LEDimg[bits][1] = love.graphics.newImage(Core.LEDid[bits][1])
-		Core.LEDimg[bits][1]:setFilter('nearest','nearest')
-		Core.LEDimg[bits][2] = love.graphics.newImage(Core.LEDid[bits][2])
-		Core.LEDimg[bits][2]:setFilter('nearest','nearest')
-		Core.LEDimg[bits][3] = love.graphics.newImage(Core.LEDid[bits][3])
-		Core.LEDimg[bits][3]:setFilter('nearest','nearest')
-		Core.LEDimg[bits][4] = love.graphics.newImage(Core.LEDid[bits][4])
-		Core.LEDimg[bits][4]:setFilter('nearest','nearest')
-		--
-	end
-	-- quads for the various pixels
-	local ledQuads = {}
-	local sz, c = self.imgSize * 0.5, 0
-	for cy=1,sz,1 do
-		for cx=1,sz,1 do
-			ledQuads[c] = love.graphics.newQuad((cx-1) * 2, (cy-1) * 2, 2, 2,
-    									self.imgSize, self.imgSize)
-			c = c + 1
-		end
-	end
-	self.ledQuads = ledQuads
+	-- do we have a setup for that many bits? if not, do that
+	if Core.LEDimg[bits] == nil then Core.ledsSetup(bits) end
+	self.map_width = Core.LEDid[bits].map_width
+	self.ledImg = Core.LEDimg[self.bits]
+	self.ledQuads = Core.LEDq[self.bits]
 	-- the batch itself
 	self.sBatch = love.graphics.newSpriteBatch(Core.LEDimg[self.bits][1], width*height, "stream")
-	-- now the sprites!
-	local sIndex = {}
-	c = 0
+	local ledQuads = self.ledQuads
 	for cy=1,height,1 do
 		for cx=1,width,1 do
 			self.sBatch:setColor(0,0,0,1)
-			sIndex[c] = self.sBatch:add( ledQuads[1], cx*2, cy*2)
-			c = c + 1
+			self.sBatch:add( ledQuads[1], cx*2, cy*2)
 		end
 	end
 	self.screen = {}
@@ -147,68 +212,6 @@ function fxLED:makeFuzz(m)
 	self.flipCount = 1
 end
 
-function fxLED:_newLEDs(ver,process)
-	-- make the LED iamges
-	local delta = {}
-	if ver == 1 then
-		delta[1] = { [1] = 0, [2] = 0 }
-		delta[2] = { [1] = 1, [2] = 0 }
-		delta[3] = { [1] = 1, [2] = 1 }
-		delta[4] = { [1] = 0, [2] = 1 }
-	elseif ver == 2 then
-		delta[1] = { [1] = 1, [2] = 0 }
-		delta[2] = { [1] = 1, [2] = 1 }
-		delta[3] = { [1] = 0, [2] = 1 }
-		delta[4] = { [1] = 0, [2] = 0 }
-	elseif ver == 3 then
-		delta[1] = { [1] = 1, [2] = 1 }
-		delta[2] = { [1] = 0, [2] = 1 }
-		delta[3] = { [1] = 0, [2] = 0 }
-		delta[4] = { [1] = 1, [2] = 0 }
-	else
-		delta[1] = { [1] = 0, [2] = 1 }
-		delta[2] = { [1] = 0, [2] = 0 }
-		delta[3] = { [1] = 1, [2] = 0 }
-		delta[4] = { [1] = 1, [2] = 1 }
-	end
-
-	-- no processing, ok, make a dummy passback function!
-	if process == nil then process = function(x) return x end end
-	local imgData = Core.LEDid[self.bits][ver]
-	local sz = self.imgSize * 0.5
-	local h, s, l, r, g, b, xl
-	l = 0.5
-	-- l is always 0
-	for cy=1,sz,1 do
-		s = (cy / sz) * 2
-		if s > 1 then
-			xl = s - 1
-			s = 1
-		else
-			xl = 0
-		end
-		for cx=1,sz,1 do
-			h = cx / sz * 6
-			-- calc
-			local c = (1-math.abs(2*l-1))*s
-			local x = (1-math.abs(h%2-1))*c
-			local m,r,g,b = (l-.5*c), 0,0,0
-			if h < 1     then r,g,b = c,x,0
-			elseif h < 2 then r,g,b = x,c,0
-			elseif h < 3 then r,g,b = 0,c,x
-			elseif h < 4 then r,g,b = 0,x,c
-			elseif h < 5 then r,g,b = x,0,c
-			else              r,g,b = c,0,x
-			end
-			imgData:setPixel( (cx-1)*2 + delta[1][1], (cy-1)*2 + delta[1][2], process(r+m), 0, 0, 1 )
-			imgData:setPixel( (cx-1)*2 + delta[2][1], (cy-1)*2 + delta[2][2], 0, process(g+m), 0, 1 )
-			imgData:setPixel( (cx-1)*2 + delta[3][1], (cy-1)*2 + delta[3][2], 0, 0, process(b+m), 1 )
-			local v = process(xl)
-			imgData:setPixel( (cx-1)*2 + delta[4][1], (cy-1)*2 + delta[4][2], v, v, v, 1 )
-		end
-	end
-end
-
 function fxLED:setHSLA(x,y,h,s,l,a)
 	-- h turns into x in the map, s turns into y
 	-- we use l for the strength of the LED (setColor)
@@ -219,7 +222,7 @@ function fxLED:setHSLA(x,y,h,s,l,a)
 	if self.drawMode == "direct" then
 		-- inform the SpriteBatch directly
 		self.sBatch:setColor(l,l,l,a)
-		self.sBatch:set(self.sIndex[y*self.width+x],self.ledQuads[spot],x*2,y*2)
+		self.sBatch:set(y*self.width+x,self.ledQuads[spot],x*2,y*2)
 	elseif self.drawMode == "buffer" then
 		-- cache this change and invalidate the line it's on
 		local ln = self.screen[y]
@@ -235,7 +238,7 @@ function fxLED:setPixel(x,y,l,spot)
 	if self.drawMode == "direct" then
 		-- inform the SpriteBatch directly
 		self.sBatch:setColor(l,l,l,a)
-		self.sBatch:set(self.sIndex[y*self.width+x],self.ledQuads[spot],x*2,y*2)
+		self.sBatch:set(y*self.width+x,self.ledQuads[spot],x*2,y*2)
 	elseif self.drawMode == "buffer" then
 		-- cache this change and invalidate the line it's on
 		local ln = self.screen[y]
@@ -251,6 +254,7 @@ function fxLED:getSpot(h,s,l)
 end
 
 function fxLED:setRGBA(x,y,r,g,b,a)
+	-- TODO
 end
 
 function fxLED:love_update()
@@ -264,7 +268,7 @@ function fxLED:love_update()
 				for ix=0,self.width-1,1 do
 					local l = ln[ix*2]
 					self.sBatch:setColor(l,l,l,1)
-					self.sBatch:set(self.sIndex[off+ix],ln[ix*2+1],ix*2,iy*2)
+					self.sBatch:set(off+ix,ln[ix*2+1],ix*2,iy*2)
 				end
 				self.screen_invalid[iy] = false
 			end

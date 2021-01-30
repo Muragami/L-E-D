@@ -40,7 +40,6 @@ Core.signalsTo(Game,Core.AllSignals)
 Startup = Entity()
 
 function Startup:integrate()
-	print("startup: integrate!")
 	self.OurLED = fxLED(640,360,4)
 	self.OurLED.drawMode = "buffer"
 	self.OurLED:makeFuzz(self.OurLED.fuzzModeList[1])
