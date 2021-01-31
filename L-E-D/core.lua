@@ -260,13 +260,35 @@ _EMPTY = _INVALID
 
 -- ENTITY
 Entity = Class { type = "?", name = "?", order = 0, once = true, listening = true,
- 		active = true, clck = 0.0, changed = true }
+ 		active = true, clock = 0.0, clock_rate = 1, dead = false, changed = true }
 local AllNamedEntities = {}
 
 function Entity:init(name)
 	if name ~= nill then
 		self:rename(name)
 	end
+end
+
+function Entity:love_update(dt)
+	-- tick our clock
+	self.clock = self.clock + dt * self.clock_rate
+	-- are we going to die?
+	if self.doomed then
+		if self.clock >= self.doomed then
+			self:kill()
+		end
+	end
+end
+
+function Entity:kill()
+	self.dead = true
+	self.doomed = nil
+	if self:isIntegrated() then self:disintegrate() end
+	Core:removeAll(self)
+end
+
+function Entity:Doom(time)
+	self.doomed = self.clock + time * self.clock_rate
 end
 
 -- this allows an entity to be an instance of another, calls made on self
@@ -309,16 +331,15 @@ function Entity:validate() self.changed = false if self.made_valid then self:mad
 function Entity:invalidate() self.changed = true if self.made_invalid then self:made_invalid() end end
 function Entity:isinvalid() return self.changed end
 
-function Entity:toIntegrate()
-	self.once = true
-end
-
+function Entity:toIntegrate() self.once = true end
+function Entity:isIntegrated() return not self.once end
 function Entity:toDisintegrate()
 	self.once = true
 	self:disintegrate()
 end
 
 function Entity:rename(name)
+	if not name then name = "?" end
 	AllNamedEntities[self.name] = nil
 	self.name = name
 	AllNamedEntities[self.name] = self
@@ -355,7 +376,7 @@ end
 -- LIST
 -- a list of classes, a type of collection, as is an Entity
 List = Class { __includes = { Entity }, type = 'list', name = "?", ID = -1, top = 0, index = {},
-		places = {}, ordered = false }
+		places = {}, ordered = false, prune_on_update = false, die_empty = false }
 local ListID = 1
 local AllLists = {}
 
@@ -384,7 +405,8 @@ function List:add(entity,name)
 	self.top = self.top + 1
 	self.index[self.top] = entity
 	self.places[entity] = self.top
-	if name then self.index[name] = entity end
+	if name then self.index[name] = entity
+	else self.index[entity.name] = entity end
 	-- let the entity know it is being added to this list, if it wants that
 	if entity.list_add then entity:list_add(self,name) end
 end
@@ -402,7 +424,8 @@ function List:addBefore(entity,what,name)
 	-- insert the entity
 	assert(where,"List:addBefore() doesn't have " .. tostring(what))
 	table.insert(self.index,where,entity)
-	if name then self.index[name] = entity end
+	if name then self.index[name] = entity
+		else self.index[entity.name] = entity end
 	-- update places!
 	self.top = self.top + 1
 	for i=where,self.top,1 do
@@ -427,7 +450,8 @@ function List:addAfter(entity,what,name)
 	-- less easy!
 	where = where + 1
 	table.insert(self.index,where,entity)
-	if name then self.index[name] = entity end
+	if name then self.index[name] = entity
+	 else self.index[entity.name] = entity end
 	-- update places!
 	self.top = self.top + 1
 	for i=where,self.top,1 do
@@ -439,37 +463,63 @@ end
 function List:rem(id, name)
 	local e = self.index[id]
 	if e then
+		print("List:rem()  removed " .. id .. " = " .. e.name )
 		-- let the entity know it is being removed from this list, if it wants that
 		if e.list_rem then e:list_rem(self, name) end
-		-- do the removal
-		self.top = self.top - 1
-		self.index[id] = self.index[self.top]
+		-- do the removal, push all down
+		self.places[e] = false
+		if id == self.top then
+			self.index[id] = nil
+			self.top = self.top - 1
+		else
+			for i=id+1,self.top,1 do
+				self.places[self.index[i]] = i-1
+				self.index[i-1] = self.index[i]
+				self.index[i] = nil
+				self.top = self.top - 1
+			end
+		end
+		if self.top > 0 then print ("\t" .. self.top .. " items remain") end
 	end
 end
 
 -- remove an entity from our list
-function List:remove(how,x)
-	if how == 'name' then
-		-- remove by it's name
+function List:remove(x)
+	local tx = type(x)
+	if tx == "number" then
+		self:rem(x)
+	elseif tx == "string" then
 		local e = self.index[x]
 		if e then self:rem(self.places[e], name) end
-	elseif how == 'class' then
+	elseif tx == "table" then
 		local e = self.places[x]
 		if e then self:rem(e, name) end
 		-- remove by class itself
 		self:rem(self.places[x])
-	elseif how == 'id' then
-		-- remove by id number
-		self:rem(x)
-	else
-		error("List:remove() called with bad method")
-	end
+	else error("List:remove() called with bad type: " .. type(x)) end
 end
 
 -- pass signals to our contained classes
 function List:signal(name,...)
+	if name == "love_update" and self.once then
+		self:integrate()
+		self.once = false
+	end
 	for _,v in ipairs(self.index) do
 		if v.signal then v:signal(name,...) end
+	end
+	if self.prune_on_update and name == "post_update" then
+		local to_prune = {}
+		for i,v in ipairs(self.index) do
+			if v.dead then table.insert(to_prune,i) end
+		end
+		for _,v in ipairs(to_prune) do
+			self:remove('id',v)
+		end
+	end
+	if self.die_empty and name == "post_update" then
+		-- suicide when empty
+		if self.top == 0 then self:kill() end
 	end
 end
 
@@ -691,53 +741,53 @@ module.tween = setmetatable({}, {
 
 Timer = setmetatable(module, {__call = _timer.new})
 
--- CORE
-local Registry = { deferred = {} }
-Registry.__index = function(self, key)
-	return Registry[key] or (
-		function()
-			local t = {}
-			rawset(self, key, t)
-			return t
-		end
-	)()
-end
+-- CORE global
+Core = { route = {}, route_top = {}, deferred = {},  AllNamedEntities = {}, AllLists = {}, AllSignals = {},
+	HasUpdated = false, HasDrawn = false, ClearScreen = true, Quitting = false,
+	InternalUpdate = {}, type = "L-E-D.Core", errMessage = {}, errors = 0 }
 
 -- places a signal entity/function at the end of the list
-function Registry:add(s, f)
-	self[s][f] = f
-	table.insert(self[s],f) -- add to the end of the order normally
+function Core:add(s, f)
+	if not self.route[s] then self.route[s] = {} self.route_top[s] = 0 end
+	self.route[s][f] = f
+	self.route_top[s] = self.route_top[s] + 1
+	table.insert(self.route[s],f) -- add to the end of the order normally
 	return f
 end
 
 -- add before another entity/function
-function Registry:addBefore(s, f, e)
-	self[s][f] = f
+function Core:addBefore(s, f, e)
+	if not self.route[s] then self.route[s] = {} self.route_top[s] = 0 end
+	self.route[s][f] = f
+	self.route_top[s] = self.route_top[s] + 1
 	-- find e in the list
-	for i,v in ipairs(self[s]) do
+	for i,v in ipairs(self.route[s]) do
 		if v == e then
-			table.insert(self[s],f,i)
+			table.insert(self.route[s],f,i)
 		end
 	end
 	return f
 end
 
 -- add before another entity/function
-function Registry:addAfter(s, f, e)
-	self[s][f] = f
+function Core:addAfter(s, f, e)
+	if not self.route[s] then self.route[s] = {} self.route_top[s] = 0 end
+	self.route[s][f] = f
+	self.route_top[s] = self.route_top[s] + 1
 	-- find e in the list
-	for i,v in ipairs(self[s]) do
+	for i,v in ipairs(self.route[s]) do
 		if v == e then
-			table.insert(self[s],f,i+1)
+			table.insert(self.route[s],f,i+1)
 		end
 	end
 	return f
 end
 
-function Registry:emit(s, ...)
-	for i,x in ipairs(self[s]) do
-		if s == "love_update" then Core.HasUpdated = true
-			elseif s == "love_draw" then Core.HasDrawn = true
+function Core:emit(s, ...)
+	if not self.route[s] or self.route_top[s] == 0 then return end -- skip, no one cares
+	for i,x in ipairs(self.route[s]) do
+		if s == "love_update" then self.HasUpdated = true
+		elseif s == "love_draw" then self.HasDrawn = true
 		end
 		if type(x) == "table" then x:signal(s,...) else x(s,...) end
 	end
@@ -755,78 +805,77 @@ local function va_to_table(t, ...)
     helper(...)
 end
 
-function Registry:emitDeferred(s, ...)
+function Core:emitDeferred(s, ...)
 	local emit = {}
 	emit.s = s
 	va_to_table(emit,...)
 	table.insert(self.deferred,emit)
 end
 
-function Registry:doDeferred()
+function Core:doDeferred()
 	for _,v in ipairs(self.deferred) do
 		self:emit(v.s, v[1], v[2], v[3], v[4], v[5], v[6])
 	end
 	self.deferred = {}
 end
 
-function Registry:remove(s, ...)
+function Core:remove(s, ...)
+	if not self.route[s] then return end -- skip, no one cares
 	local f = {...}
 	for i = 1,select('#', ...) do
-		self[s][f[i]] = nil
+		self.route[s][f[i]] = nil
+		self.route_top[s] = self.route_top[s] - 1
 	end
 end
 
-function Registry:clear(...)
-	local s = {...}
-	for i = 1,select('#', ...) do
-		self[s[i]] = {}
+-- remove an entity entirely, check for all signals and remove it
+function Core:removeAll(e)
+	for k,v in pairs(self.route) do
+		if v[e] then
+			v[e] = nil
+			self.route_top[k] = self.route_top[k] - 1
+		end
+		if k == "love_update" then
+			-- make sure this knows to integrate
+			e:toDisintegrate()
+		end
 	end
 end
 
-function Registry:emitPattern(p, ...)
-	for s in pairs(self) do
+function Core:clear(...)
+	for s in pairs(self.route) do
+		self.route[s] = {}
+		self.route_top[s] = 0
+	end
+end
+
+function Core:emitPattern(p, ...)
+	for s in pairs(self.route) do
 		if s:match(p) then self:emit(s, ...) end
 	end
 end
 
-function Registry:registerPattern(p, f)
-	for s in pairs(self) do
-		if s:match(p) then self:register(s, f) end
+function Core:addPattern(p, f)
+	for s in pairs(self.route) do
+		if s:match(p) then self:add(s, f) end
 	end
 	return f
 end
 
-function Registry:removePattern(p, ...)
-	for s in pairs(self) do
+function Core:removePattern(p, ...)
+	for s in pairs(self.route) do
 		if s:match(p) then self:remove(s, ...) end
 	end
 end
 
-function Registry:clearPattern(p)
-	for s in pairs(self) do
-		if s:match(p) then self[s] = {} end
+function Core:clearPattern(p)
+	for s in pairs(self.route) do
+		if s:match(p) then self.route[s] = {} self.route_top[s] = 0 end
 	end
 end
 
-	-- instancing
-function Registry.new()
-	return setmetatable({}, Registry)
-end
-
-	-- default instance
-local default = Registry.new()
-
-	-- module forwards calls to default instance
-local module = {}
-	for k in pairs(Registry) do
-		if k ~= "__index" then
-			module[k] = function(...) return default[k](default, ...) end
-		end
-end
-
-Core = setmetatable(module, {})
 -- setup love signals
-Core.DefaultSignals = { "love_update", "love_draw", "love_errorhandler",
+Core.DefaultSignals = { "love_update", "love_draw", "love_errorhandler", "core_error",
  		"love_threaderror", "love_quit", "love_lowmemory", "love_displayrotated", "post_update" }
 Core.JoystickSignals = { "love_gamepadaxis", "love_gamepadpressed","love_gamepadreleased",
  		"love_joystickadded", "love_joystickaxis", "love_joystickhat",
@@ -836,25 +885,16 @@ Core.WindowSignals = { "love_directorydropped", "love_filedropped", "love_focus"
 Core.MouseKeyboardSignals = { "love_mousemoved", "love_mousepressed", "love_mousereleased", "love_wheelmoved",
 		"love_keypressed", "love_keyreleased", "love_textedited", "love_textinput" }
 -- do a little magic to put them all into an AllSignals reference
-Core.AllSignals = {}
 for _,v in ipairs(Core.DefaultSignals) do table.insert(Core.AllSignals, v) end
 for _,v in ipairs(Core.JoystickSignals) do table.insert(Core.AllSignals, v) end
 for _,v in ipairs(Core.WindowSignals) do table.insert(Core.AllSignals, v) end
 for _,v in ipairs(Core.MouseKeyboardSignals) do table.insert(Core.AllSignals, v) end
-Core.AllNamedEntities = AllNamedEntities
-Core.AllLists = AllLists
-Core.HasUpdated = false
-Core.HasDrawn = false
-Core.ClearScreen = true
-Core.Quitting = false
-Core.InternalUpdate = {}
-Core.type = "L-E-D.Core"
 
 -- add signals to a list or Entity
-function Core.signalsTo(l,sigs)
+function Core:signalsTo(l,sigs)
 	if sigs == nil then sigs = Core.DefaultSignals end
 	for _,v in ipairs(sigs) do
-		Core.add(v,l)
+		self:add(v,l)
 		if v == "love_update" then
 			-- make sure this knows to integrate
 			l:toIntegrate()
@@ -863,10 +903,10 @@ function Core.signalsTo(l,sigs)
 end
 
 -- remove signals to a list or Entity
-function Core.signalsFrom(l,sigs)
+function Core:signalsFrom(l,sigs)
 	if sigs == nil then sigs = Core.DefaultSignals end
 	for _,v in ipairs(sigs) do
-		Core.remove(v,l)
+		self:remove(v,l)
 		if v == "love_update" then
 			-- make sure this knows to integrate
 			l:toDisintegrate()
@@ -874,13 +914,45 @@ function Core.signalsFrom(l,sigs)
 	end
 end
 
-function Core.findEntity(name)
-	return Core.AllNamedEntities[name]
+function Core:findEntity(name)
+	return self.AllNamedEntities[name]
 end
 
-function Core.findList(name)
+function Core:findList(name)
 	if name == nil then name = "?" end
-	return Core.AllLists[name]
+	return self.AllLists[name]
+end
+
+function Core:run(name)
+	local ok, chunk, result
+	ok, chunk = pcall( love.filesystem.load, name ) -- load the chunk safely
+	if not ok then
+		self:addError('Core:run() failed compile:' .. tostring(chunk))
+	else
+	  ok, result = pcall(chunk) -- execute the chunk safely
+
+	  if not ok then -- will be false if there is an error
+			self:addError('Core:run() failed execute:' .. tostring(result))
+	  else
+	    return result
+	  end
+	end
+end
+
+function Core:lastError()
+	if self.errors < 1 then return end
+	local ret = self.errMessage[self.errors]
+	self.errMessage[self.errors] = nil
+	self.errors = self.errors - 1
+	return ret
+end
+
+function Core:hasErrors() return self.errors > 0 end
+
+function Core:addError(s)
+	self.errors = self.errors + 1
+	self.errMessage[self.errors] = s
+	Core:emit('core_error',s)
 end
 
 -- RUN
@@ -895,6 +967,8 @@ function love.run()
 		-- simple detection for a lack of uh, well game!
 		Core.HasDrawn = false
 		Core.HasUpdated = false
+		Core.errMessage = {}
+		Core.errors = 0
 
 		-- Process events.
 		if love.event then
@@ -903,10 +977,10 @@ function love.run()
 				if name == "quit" then
 					-- all something to stop quitting by setting Core.Quitting to false
 					Core.Quitting = true
-					Core.emit("love_quit",a,b,c,d,e,f)
+					Core:emit("love_quit",a,b,c,d,e,f)
 					if Core.Quitting then return a or 0 end
 				end
-				Core.emit("love_" .. name,a,b,c,d,e,f)
+				Core:emit("love_" .. name,a,b,c,d,e,f)
 			end
 		end
 
@@ -923,16 +997,16 @@ function love.run()
 		-- update timers
 		Timer.update(dt)
 		-- update others
-		Core.emit("love_update",dt)
+		Core:emit("love_update",dt)
 		-- do any post update for internals
-		Core.emit("post_update",dt)
+		Core:emit("post_update",dt)
 		-- do any deferred signals
-		Core.doDeferred()
+		Core:doDeferred()
 		-- draw
 		if love.graphics and love.graphics.isActive() then
 			love.graphics.origin()
 			if Core.ClearScreen then love.graphics.clear(love.graphics.getBackgroundColor()) end
-			Core.emit("love_draw")
+			Core:emit("love_draw")
 			love.graphics.present()
 		end
 		-- quit if we have not updated or drawn anything

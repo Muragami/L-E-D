@@ -317,6 +317,10 @@ local svg_color = {
 
 fxColorPalette = Class { __includes = { List }, type = "fxColorPalette" }
 
+function fxColorPalette:init(name,cfg)
+	self:rename(name)
+end
+
 function fxColorPalette:addStd(name)
 	if svg_color[name] then
 		local tab = svg_color[name]

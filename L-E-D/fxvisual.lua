@@ -274,11 +274,13 @@ end
 -- animation
 local function draw_animationfill(self)
 	if not self.visible then return end
+	-- TODO
 end
 
 -- tile
 local function draw_tilefill(self)
 	if not self.visible then return end
+	-- TODO
 end
 
 
@@ -334,6 +336,43 @@ function fxShape:init(cfg)
 			-- just drawing a mesh
 			self.the_mesh = love.graphics.newMesh( self.vertex, self.mode, self.usage )
 			self.love_draw = draw_mesh
+		end
+	end
+	-- grab data for this thing if we need to
+	if self.form == "image" or self.form == "animation" or self.form == "tile" then
+		-- get image data
+		if not self.imagedata then
+			if self.filename then
+				-- load from the file
+				self.imagedata = love.image.newImageData(self.filename)
+			elseif self.new_image then
+				-- call an internal function
+				self.imagedata = self:new_image()
+			else
+				-- just make a blank image
+				self.imagedata = love.image.newImageData(self.width, self.height, self.format, self.rawdata)
+			end
+		end
+		-- do we need tile or animation frames?
+		if self.form == "animation" or self.form == "tile" then
+			if self.dataformat == "pyxel_json" then
+				-- we already have proper tile data in self.tiles
+			elseif self.dataformat == "lua_table" then
+				-- we already have proper tile data in self.tiledata
+				-- lets make the quads
+			elseif self.dataformat == "make_grid" then
+				-- we expect to have grid
+				self.tile = {}
+				local c = 1
+				local sw, sh = self.imagedata:getWidth(), self.imagedata:getHeight()
+				local tw, th = self.tilewidth, self.tileheight
+				for cy=1,self.gridheight,1 do
+					for cx=1,self.gridwidth,1 do
+						self.tile[c] = love.graphics.newQuad(cx * tw, cy * th, tw, th, sw, sh)
+						c = c + 1
+					end
+				end
+			end
 		end
 	end
 	self.visible = true

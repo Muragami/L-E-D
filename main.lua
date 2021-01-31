@@ -32,26 +32,60 @@ require 'L-E-D.fxvisual'
 
 -- example me this, batman, let's just make a single List, call it Game
 Game = List("TheGame")
-
+-- make the game prune contained dead entities automagically
+Game.prune_on_update = true
+-- die if we are done, and an empty nest
+Game.die_empty = true
 -- this tells the system to send all signals to Game
-Core.signalsTo(Game,Core.AllSignals)
+Core:signalsTo(Game,Core.AllSignals)
 
 -- maybe we will use some colors?
-Colors = fxColorPalette()
+Colors = fxColorPalette("GameColors")
 Colors:addAllStd()		-- all standard svg color names, why not?
 Game:add(Colors)			-- put it into the game list, so it gets post_update signals
 
 -- actually do something, we will do an opening sequence
-Intro = Entity()
+Intro = Entity("Intro")
 
+-- called once before the first time an entity will call love_update
 function Intro:integrate()
+	-- listen for intro_end
+	Core:add("intro_end",self)
+	-- also doom us, because we are going to die in 10 seconds
+	self:Doom(3)
+	print("integrate")
 end
 
+-- called once each frame, before the screen is drawn
 function Intro:love_update(dt)
+	Entity.love_update(self,dt)	-- let entity do tracking
+	if not self.done then print("love_update") self.done = true end
 end
 
+-- what to do if a key is pressed!
 function Intro:love_keypressed(key, scancode, isrepeat)
+	Core:emit("intro_end")
+	print("key_pressed")
 end
 
+-- signal that we are done with the intro
+function Intro:intro_end(key, scancode, isrepeat)
+	Core:run('start.lua')
+	print("intro_end")
+end
 
-Game:add(Intro,"Intro")
+function Intro:kill()
+	Entity.kill(self)
+	print("intro killed")
+	Game:remove(Colors)
+	Game:remove(self)
+end
+
+function Intro:core_error(s)
+	print("error:")
+	print(s)
+	print('')
+end
+
+-- add Intro to the game (making it real!)
+Game:add(Intro)
