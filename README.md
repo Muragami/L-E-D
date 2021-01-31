@@ -1,7 +1,9 @@
 # L-E-D
 **Say L, E, D**
 
-**Implemented: a bit = ??%, not ready for regular use yet!**
+**Implemented: some = ??%, not ready for regular use yet!**
+
+**target for release 0.1: most features, little optimization**
 
 LÖVE Engine Design
 -----
