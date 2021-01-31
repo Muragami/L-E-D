@@ -244,22 +244,11 @@ local function new(class)
 	class.clone   = class.clone   or clone
 
 	-- constructor call
-	return setmetatable(class, {__call = function(c, ...)
+	return setmetatable(class, { __call = function(c, ...)
 		local o = setmetatable({}, c)
 		o:init(...)
 		return o
 	end})
-end
-
--- interface for cross class-system compatibility (see https://github.com/bartbes/Class-Commons).
-if class_commons ~= false and not common then
-	common = {}
-	function common.class(name, prototype, parent)
-		return new{__includes = {prototype, parent}}
-	end
-	function common.instance(class, ...)
-		return class(...)
-	end
 end
 
 Class = setmetatable({new = new, include = include, clone = clone},
@@ -271,7 +260,7 @@ _EMPTY = _INVALID
 
 -- ENTITY
 Entity = Class { type = "?", name = "?", order = 0, once = true, listening = true,
- 		active = true, clck = 0.0 }
+ 		active = true, clck = 0.0, changed = true }
 local AllNamedEntities = {}
 
 function Entity:init(name)
@@ -280,11 +269,45 @@ function Entity:init(name)
 	end
 end
 
+-- this allows an entity to be an instance of another, calls made on self
+-- that trigger __index get passed upward to the source table here
+local function source_index(t,k)
+	local src = rawget(t,'__source')
+	if src then return src[k] else return nil end
+end
+
+function Entity:setSource(src) self.__source = src setmetatable(self, { __index = source_index }) end
+function Entity:getSource() return self.__source end
+function Entity:hasSource() return self.__source ~= nil end
+
+function Entity:configFromTable(cfg)
+	local opts
+	if cfg then
+		if type(cfg) == "string" then
+			-- decode the JSON data
+			opts = JSON:decode(cfg)
+		else
+			-- it's a table with data
+			opts = cfg
+		end
+	end
+	-- get the config!
+	for k,v in pairs(opts) do
+		self[k] = v
+	end
+	self:invalidate()
+end
+
 function Entity:integrate()
 end
 
 function Entity:disintegrate()
 end
+
+-- marking for changes
+function Entity:validate() self.changed = false if self.made_valid then self:made_valid() end end
+function Entity:invalidate() self.changed = true if self.made_invalid then self:made_invalid() end end
+function Entity:isinvalid() return self.changed end
 
 function Entity:toIntegrate()
 	self.once = true
@@ -825,6 +848,7 @@ Core.HasDrawn = false
 Core.ClearScreen = true
 Core.Quitting = false
 Core.InternalUpdate = {}
+Core.type = "L-E-D.Core"
 
 -- add signals to a list or Entity
 function Core.signalsTo(l,sigs)
@@ -916,4 +940,11 @@ function love.run()
 		-- be nice!
 		if love.timer then love.timer.sleep(0.001) end
 	end
+end
+
+-- Emitter, a class to emit timed or triggered signals
+Emitter = Class { __includes = { Entity }, type = "Emitter" }
+
+function Emitter:init(cfg)
+	self:configFromTable(cfg)
 end

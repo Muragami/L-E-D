@@ -25,61 +25,110 @@ SOFTWARE.
 assert(Class, "L-E-D.fxvisual must be included after L-E-D.core")
 assert(fxColor, "L-E-D.fxvisual must be included after L-E-D.fxcolor")
 
-fxShape = Class { __includes = { Entity }, stroke = false, fill = true }
+fxShape = Class { __includes = { Entity }, type = "fxShape" }
 
 -- simple shapes that we pass into loved directly, if you are using these
 -- then your shape will be turned into a mesh
 local SimpleShapes = { triangle = true, rectangle = true, points = true,
- 				polygon = true, line = true, ellipse = true, arc = true, text = true }
+ 				polygon = true, line = true, ellipse = true, arc = true, text = true,
+			 	image = true, animation = true, tile = true }
 
-local wid, sz = false, false
+local wid, sz, last_style = false, false, false
 
+local function draw_applystyle(style)
+	if style == last_style then return end
+	last_style = style
+	if style.width then
+		wid = love.graphics.getWidth()
+		love.graphics.setWidth(style.width)
+	end
+	if style.size then
+		sz = love.graphics.getPointSize()
+		love.graphics.setPointSize(style.size)
+	end
+end
+
+local function draw_removestyle(style)
+	if style.width then love.graphics.setWidth(wid) end
+	if style.size then love.graphics.setPointSize(sz) end
+	last_style = false
+end
+
+--[[ all the following draw functions follow this format internally:
+
+	if not self.visible then return end
+	if self.style then
+		-- apply our style
+		draw_applystyle(self.style)
+		<<DRAW HERE>>
+	else
+		-- cleanup any lingering style
+		if last_style then draw_removestyle(last_style) end
+		<<DRAW HERE>>
+	end
+
+]]
 --triangle
 local function draw_triangleline(self)
 	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getWidth()
-		love.graphics.setWidth(self.style.width)
-	end
-	love.graphics.triangle("line", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.triangle("line", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+										self.vertex[5], self.vertex[6])
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.triangle("line", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
 									self.vertex[5], self.vertex[6])
-	if self.style then
-		love.graphics.setWidth(wid)
 	end
 end
 local function draw_trianglefill(self)
 	if not self.visible then return end
-	love.graphics.triangle("fill", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+	if self.style then
+		draw_applystyle(self.style)
+		love.graphics.triangle("fill", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
+										self.vertex[5], self.vertex[6])
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.triangle("fill", self.vertex[1], self.vertex[2], self.vertex[3], self.vertex[4],
 									self.vertex[5], self.vertex[6])
+	end
 end
 
 --rectangle
 local function draw_rectangleline(self)
 	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getWidth()
-		love.graphics.setWidth(self.style.width)
-	end
-	love.graphics.rectangle("line", self.vertex[1], self.vertex[2], self.width, self.height)
-	if self.style then
-		love.graphics.setWidth(wid)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.rectangle("line", self.vertex[1], self.vertex[2], self.width, self.height)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.rectangle("line", self.vertex[1], self.vertex[2], self.width, self.height)
 	end
 end
 local function draw_rectanglefill(self)
 	if not self.visible then return end
-	love.graphics.rectangle("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.rectangle("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.rectangle("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	end
 end
 
 -- points
 local function draw_pointsfill(self)
 	if not self.visible then return end
 	if self.style then
-		sz = love.graphics.getPointSize()
-		love.graphics.setPointSize(self.style.size)
-	end
-	love.graphics.points("fill",self.vertex)
-	if self.style then
-		love.graphics.setPointSize(sz)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.points(self.vertex)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.points(self.vertex)
 	end
 end
 
@@ -87,104 +136,167 @@ end
 local function draw_polygonline(self)
 	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getLineWidth()
-		love.graphics.setLineWidth(self.style.width)
-	end
-	love.graphics.polygon("line",self.vertex)
-	if self.style then
-		love.graphics.setLineWidth(wid)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.polygon("line",self.vertex)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.polygon("line",self.vertex)
 	end
 end
 local function draw_polygonfill(self)
 	if not self.visible then return end
-	love.graphics.polygon("fill",self.vertex)
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.polygon("fill",self.vertex)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.polygon("fill",self.vertex)
+	end
 end
 
 --line
 local function draw_lineline(self)
 	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getLineWidth()
-		love.graphics.setLineWidth(self.style.width)
-	end
-	love.graphics.line("line",self.vertex)
-	if self.style then
-		love.graphics.setLineWidth(wid)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.line(self.vertex)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.line(self.vertex)
 	end
 end
+
+
 
 --ellipse
 local function draw_ellipseline(self)
 	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getLineWidth()
-		love.graphics.setLineWidth(self.style.width)
-	end
-	love.graphics.ellipse("line", self.vertex[1], self.vertex[2], self.width, self.height)
-	if self.style then
-		love.graphics.setLineWidth(wid)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.ellipse("line", self.vertex[1], self.vertex[2], self.width, self.height)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.ellipse("line", self.vertex[1], self.vertex[2], self.width, self.height)
 	end
 end
 local function draw_ellipsefill(self)
-	love.graphics.ellipse("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.ellipse("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.ellipse("fill", self.vertex[1], self.vertex[2], self.width, self.height)
+	end
 end
 
 -- arc
 local function draw_arcline(self)
+	if not self.visible then return end
 	if self.style then
-		wid = love.graphics.getLineWidth()
-		love.graphics.setLineWidth(self.style.width)
-	end
-	love.graphics.arc("line", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
-	if self.style then
-		love.graphics.setLineWidth(wid)
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.arc("line", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.arc("line", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
 	end
 end
 local function draw_arcfill(self)
-	love.graphics.arc("fill", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.arc("fill", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.arc("fill", self.vertex[1], self.vertex[2], self.radius, self.start, self.stop, self.segments)
+	end
 end
 
 --entity
 local function draw_entity(self)
-	self.draw_entity:love_draw()
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		self.draw_entity:love_draw()
+	else
+		if last_style then draw_removestyle(last_style) end
+		self.draw_entity:love_draw()
+	end
 end
 
 -- mesh
 local function draw_mesh(self)
-	love.graphics.draw(self.the_mesh, self.sx, self.sy)
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.draw(self.the_mesh, self.sx, self.sy)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.draw(self.the_mesh, self.sx, self.sy)
+	end
 end
 
 -- text
 local function draw_textfill(self)
-	love.graphics.setFont(self.font)
-	love.graphics.print(self.text, self.sx, self.sy)
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.print(self.text, self.sx, self.sy)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.print(self.text, self.sx, self.sy)
+	end
 end
+
+-- image
+local function draw_imagefill(self)
+	if not self.visible then return end
+	if self.style then
+		-- apply the style
+		draw_applystyle(self.style)
+		love.graphics.draw(self.image, self.sx, self.sy)
+	else
+		if last_style then draw_removestyle(last_style) end
+		love.graphics.draw(self.image, self.sx, self.sy)
+	end
+end
+
+-- animation
+local function draw_animationfill(self)
+	if not self.visible then return end
+end
+
+-- tile
+local function draw_tilefill(self)
+	if not self.visible then return end
+end
+
 
 local DrawFunc = { triangleline = draw_triangleline, trianglefill =  draw_trianglefill,
 				rectanglefill = draw_rectanglefill, rectangleline = draw_rectangleline,
 			 	pointsfill = draw_pointsfill, polygonfill = draw_polygonfill,
-				polygonline = draw_polygonline, lineline = draw_lineline, ellipseline = draw_ellipseline,
-			 	ellipsefill = draw_ellipsefill, arcline = draw_arcline, arcfill = draw_arcfill }
+				polygonline = draw_polygonline, lineline = draw_lineline, linefill = draw_lineline,
+				ellipseline = draw_ellipseline, ellipsefill = draw_ellipsefill, arcline = draw_arcline,
+				arcfill = draw_arcfill, textfill = draw_textfill }
 
 function fxShape:init(cfg)
-	local opts
-	if cfg then
-		if type(cfg) == "string" then
-			-- decode the JSON data
-			opts = JSON:decode(cfg)
-		else
-			-- it's a table with data
-			opts = cfg
-		end
-	end
-	-- get the config!
-	for k,v in pairs(opts) do
-		self[k] = v
-	end
+	self:configFromTable(cfg)
 	if self.vertex and not self.sx then self.sx = self.vertex[1] end
 	if self.vertex and not self.sy then self.sy = self.vertex[2] end
+	if not self.mode then self.mode = "fill" end
+	if not self.form then self.form = "empty" end
 	-- are we simple?
-	self.simple = SimpleShapes[opts.form] or false
+	self.simple = SimpleShapes[self.form] or false
 	if self.simple then
 		-- whatever we are, assign the proper draw function
 		self.love_draw = DrawFunc[self.form .. self.mode]
@@ -229,7 +341,16 @@ function fxShape:init(cfg)
 	if self.offscreen then self.draw_offscreen = self.love_draw self.love_draw = nil end
 end
 
-fxLED =  Class { __includes = { Entity }, drawMode = "buffer", fuzzMode = "flip", bits = 4, width = 0, height = 0 }
+-- an instance of a give shape, may have it's own style
+fxShapeInstance = Class { __includes = { Entity }, type = "fxShapeInstance", source = _INVALID }
+
+-- set the source, so indexes into this table that are empty pass to that source!
+function fxShapeInstance:init(src)
+	if src then self:setSource(src) end
+end
+
+
+fxLED =  Class { __includes = { Entity }, type = "fxLED", drawMode = "buffer", fuzzMode = "none", bits = 4, width = 0, height = 0 }
 
 -- install some shared fxLED stuff into Core, and fill that in if we use it!
 Core.LEDimg = {}

@@ -24,7 +24,7 @@ SOFTWARE.
 
 assert(Class, "L-E-D.fxcolor must be included after L-E-D.core")
 
-fxColor = Class { __includes = { Entity } }
+fxColor = Class { __includes = { Entity }, type = "fxColor" }
 
 local function lerp(a, b, k) --smooth transitions
   if a == b then
@@ -315,7 +315,7 @@ local svg_color = {
 	['pink'] = { 350, 100, 88 },
 	['lightpink'] = { 351, 100, 86 } }
 
-fxColorPalette = Class { __includes = { List } }
+fxColorPalette = Class { __includes = { List }, type = "fxColorPalette" }
 
 function fxColorPalette:addStd(name)
 	if svg_color[name] then
@@ -333,5 +333,12 @@ function fxColorPalette:addAllStd()
 end
 
 function fxColorPalette:duplicate(color)
-
+	if type(color) == "string" then
+		-- it's a string into this palette
+		local e = index[name]
+		return e:clone()
+	else
+		-- its' a color object
+		return color:clone()
+	end
 end

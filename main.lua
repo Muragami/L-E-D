@@ -30,57 +30,28 @@ require 'L-E-D.fxcolor'
 require 'L-E-D.fxcamera'
 require 'L-E-D.fxvisual'
 
--- example me this, batman
+-- example me this, batman, let's just make a single List, call it Game
 Game = List("TheGame")
 
 -- this tells the system to send all signals to Game
 Core.signalsTo(Game,Core.AllSignals)
 
--- actually do something
-Startup = Entity()
+-- maybe we will use some colors?
 Colors = fxColorPalette()
-Colors:addAllStd()
+Colors:addAllStd()		-- all standard svg color names, why not?
+Game:add(Colors)			-- put it into the game list, so it gets post_update signals
 
-function Startup:integrate()
-	self.OurLED = fxLED(640,360,4)
-	self.OurLED.drawMode = "buffer"
-	self.OurLED:makeFuzz(self.OurLED.fuzzModeList[1])
-	self.fuzzID = 1
-	self.rng = love.math.newRandomGenerator()
-	self.clk = 0
-	self.Rect = fxShape( { form = "rectangle", mode = "fill", vertex = { 10, 10 }, width = 100, height = 50 } )
-	Game:addBefore(self.OurLED,Startup)
-	Game:addAfter(self.Rect,self.OurLED)
+-- actually do something, we will do an opening sequence
+Intro = Entity()
+
+function Intro:integrate()
 end
 
-function Startup:love_update(dt)
-	-- set 256 random pixels on the LED screen
-	self.clk = self.clk + dt
-	local h,s = math.fmod(self.clk,6),0.6
-	local lines = 16
-	for i=1,lines,1 do
-		local half = (self.OurLED.height-lines)/2
-		local y = math.floor(math.sin(self.clk)*half)+half+i
-		local spot = self.OurLED:getSpot(h,s,1)
-		for c=0,639,1 do
-			self.OurLED:setPixel(c,y,1,spot)
-		end
-	end
+function Intro:love_update(dt)
 end
 
-function Startup:love_keypressed(key, scancode, isrepeat)
-	if key == 'space' then
-		self.fuzzID = self.fuzzID + 1
-		if self.fuzzID > #(self.OurLED.fuzzModeList) then self.fuzzID = 1 end
-		self.OurLED:makeFuzz(self.OurLED.fuzzModeList[self.fuzzID])
-	end
+function Intro:love_keypressed(key, scancode, isrepeat)
 end
 
-function Startup:love_draw()
-	love.graphics.setColor(0,0,0,0.67)
-	love.graphics.rectangle('fill', 0, 0, 1280, 20)
-	love.graphics.setColor(1,1,1,1)
-	love.graphics.print("FPS: " .. love.timer.getFPS() .. " fuzz is: " .. self.OurLED.fuzzMode)
-end
 
-Game:add(Startup,"Startup")
+Game:add(Intro,"Intro")

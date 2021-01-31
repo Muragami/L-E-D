@@ -22,6 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]--
 
-assert(Class, "L-E-D.fxaudio must be included after L-E-D.core")
+assert(Class, "L-E-D.fxlogic must be included after L-E-D.core")
 
-fxAudio = Class { __includes = { Entity }, type = "fxAudio" }
+fxLogic = Class { __includes = { Entity }, type = "fxLogic" }
