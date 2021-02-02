@@ -46,7 +46,7 @@ end
 -- add our internal update routine to be called before love_update each frame
 Core.InternalUpdate["fxColor"] = fxColorUpdate
 
-function fxColor:init(h, s, l, a)
+function fxColor:init(name, h, s, l, a)
 	-- put us in the color table
 	fxColorTable[fxColorId] = self
 	self.ID = fxColorId
@@ -59,6 +59,7 @@ function fxColor:init(h, s, l, a)
 	self[4] = a or 1.0
 	self.RGBA = {}
 	self.changed = true
+	self:rename(name)
 end
 
 function fxColor:free()
@@ -325,14 +326,14 @@ function fxColorPalette:addStd(name)
 	if svg_color[name] then
 		local tab = svg_color[name]
 		local h, s, l = tab[1], tab[2], tab[3]
-		self:add(fxColor(h,s,l),name)
+		self:add(fxColor(name,h,s,l))
 	end
 end
 
 function fxColorPalette:addAllStd()
 	for k,v in pairs(svg_color) do
 		local h, s, l = v[1], v[2], v[3]
-		self:add(fxColor(h,s,l),k)
+		self:add(fxColor(k,h,s,l))
 	end
 end
 

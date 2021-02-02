@@ -25,7 +25,7 @@ THE SOFTWARE.
 --]]
 
 -- start the game, first remove the intro
-Game:remove(Intro)
+Game:clear()
 
-print("Intro removed")
+log("Intro removed")
 -- now create the game menu

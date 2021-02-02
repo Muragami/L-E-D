@@ -255,12 +255,13 @@ Class = setmetatable({new = new, include = include, clone = clone},
 	{__call = function(_,...) return new(...) end})
 
 -- some nice stuff
-_INVALID = {}
+_INVALID = { name = "_INVALID" }
 _EMPTY = _INVALID
 
 -- ENTITY
 Entity = Class { type = "?", name = "?", order = 0, once = true, listening = true,
- 		active = true, clock = 0.0, clock_rate = 1, dead = false, changed = true }
+ 		active = true, clock = 0.0, clock_rate = 1, dead = false, changed = true,
+		holder = _INVALID, held = true }
 local AllNamedEntities = {}
 
 function Entity:init(name)
@@ -281,14 +282,18 @@ function Entity:love_update(dt)
 end
 
 function Entity:kill()
+	if self.dead then return end -- can't die twice, James Bond!
 	self.dead = true
 	self.doomed = nil
 	if self:isIntegrated() then self:disintegrate() end
-	Core:removeAll(self)
+	if self.kill_signal then Core:emit(self.kill_signal,self) end
+	-- if are top-level, then remove us from the registry
+	if not self.held then Core:removeAll(self) end
 end
 
-function Entity:Doom(time)
+function Entity:Doom(time,sig)
 	self.doomed = self.clock + time * self.clock_rate
+	if sig then self.kill_signal = sig end
 end
 
 -- this allows an entity to be an instance of another, calls made on self
@@ -320,11 +325,9 @@ function Entity:configFromTable(cfg)
 	self:invalidate()
 end
 
-function Entity:integrate()
-end
-
-function Entity:disintegrate()
-end
+-- noop functions for integration, will be overridden
+function Entity:integrate() end
+function Entity:disintegrate() end
 
 -- marking for changes
 function Entity:validate() self.changed = false if self.made_valid then self:made_valid() end end
@@ -369,6 +372,23 @@ function Entity:signal(name,...)
 		end
 	end
 end
+
+function Entity:list_rem(the_list)
+	if self.dead then return end -- we can never die twice, yes, Mr. bond!
+	-- if we are held by a list, ok, kill us on exit
+	if self.held and self.holder == the_list then
+		log ("killed " .. self.name)
+		self:kill()
+	end
+end
+
+function Entity:list_add(the_list)
+	-- we will be held by the first list we are added too, make it so
+	if self.held and self.holder == _INVALID then self.holder = the_list end
+end
+
+-- will we ever be held? what is love?
+function Entity:topLevel(yes) self.held = not yes end
 
 -- TODO: add Location
 -- TODO: add Style
@@ -431,6 +451,8 @@ function List:addBefore(entity,what,name)
 	for i=where,self.top,1 do
 		self.places[self.index[i]] = i
 	end
+	-- let the entity know it is being added to this list, if it wants that
+	if entity.list_add then entity:list_add(self,name) end
 end
 
 -- add an entity to our list, before another one
@@ -457,13 +479,15 @@ function List:addAfter(entity,what,name)
 	for i=where,self.top,1 do
 		self.places[self.index[i]] = i
 	end
+	-- let the entity know it is being added to this list, if it wants that
+	if entity.list_add then entity:list_add(self,name) end
 end
 
 -- low level, remove an entity by id
 function List:rem(id, name)
 	local e = self.index[id]
 	if e then
-		print("List:rem()  removed " .. id .. " = " .. e.name )
+		log("List:rem()  removed " .. id .. " = " .. e.name )
 		-- let the entity know it is being removed from this list, if it wants that
 		if e.list_rem then e:list_rem(self, name) end
 		-- do the removal, push all down
@@ -479,7 +503,7 @@ function List:rem(id, name)
 				self.top = self.top - 1
 			end
 		end
-		if self.top > 0 then print ("\t" .. self.top .. " items remain") end
+		if self.top > 0 then log ("\t" .. self.top .. " items remain") end
 	end
 end
 
@@ -522,21 +546,6 @@ function List:signal(name,...)
 		if self.top == 0 then self:kill() end
 	end
 end
-
--- pass an integrate() call to contents!
-function List:integrate()
-	for _,v in ipairs(self.index) do
-		v:integrate()
-	end
-end
-
--- pass an integrate() call to contents!
-function List:disintegrate()
-	for _,v in ipairs(self.index) do
-		v:disintegrate()
-	end
-end
-
 
 -- TIMER
 local _timer = {}
@@ -746,6 +755,12 @@ Core = { route = {}, route_top = {}, deferred = {},  AllNamedEntities = {}, AllL
 	HasUpdated = false, HasDrawn = false, ClearScreen = true, Quitting = false,
 	InternalUpdate = {}, type = "L-E-D.Core", errMessage = {}, errors = 0 }
 
+
+function Core:init()
+	Core.srcPath = love.filesystem.getSourceBaseDirectory()
+	love.filesystem.write('log.txt',"")
+end
+
 -- places a signal entity/function at the end of the list
 function Core:add(s, f)
 	if not self.route[s] then self.route[s] = {} self.route_top[s] = 0 end
@@ -954,6 +969,28 @@ function Core:addError(s)
 	self.errMessage[self.errors] = s
 	Core:emit('core_error',s)
 end
+
+-- example me this, batman, let's just make a single List, call it Game
+function Core:NewGame(name)
+	self:init()
+	local Game = List(name)
+	-- make the game prune contained dead entities automagically
+	Game.prune_on_update = true
+	-- die if we are done, and an empty nest
+	Game.die_empty = true
+	-- this tells the system to send all signals to Game
+	Core:signalsTo(Game,Core.AllSignals)
+	-- game list is a top-level item and won't ever be held
+	Game:topLevel(true)
+	return Game
+end
+
+function Core.log(s)
+	print(s)
+	love.filesystem.append("log.txt",s .. "\n")
+end
+
+function log(s) Core.log(s) end
 
 -- RUN
 function love.run()
